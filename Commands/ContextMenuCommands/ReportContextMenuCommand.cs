@@ -4,8 +4,7 @@ using Discord;
 
 namespace tsgsBot_C_.Commands.ContextMenuCommands
 {
-    [Group("context", "Context menu commands")]
-    public sealed class ContextMenuCommands : LoggedCommandModule
+    public sealed class ReportContextMenuCommand : LoggedCommandModule
     {
         private const ulong ReportsChannelId = 690284349521788940;
 
