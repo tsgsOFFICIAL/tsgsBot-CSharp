@@ -5,6 +5,7 @@ using Discord.WebSocket;
 using System.Reflection;
 using tsgsBot_C_;
 using Discord;
+using Discord.Rest;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
@@ -82,7 +83,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
         // Rust
         (ActivityType.Playing,   "Playing Rust with 1 rock and 0 hope"),
         (ActivityType.Watching,  "Watching my base decay in real time"),
-        (ActivityType.Listening, "Listening to footsteps that aren't mine"),
+        (ActivityType.Listening, "Listening to footsteps that aren'guildCommands mine"),
         (ActivityType.Competing, "Competing in naked Olympics at Outpost"),
         (ActivityType.Streaming, "Streaming my 8th raid failure today"),
         (ActivityType.Playing,   "Playing hide and seek with roof campers"),
@@ -112,7 +113,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
         (ActivityType.Competing, "Competing in a tournament of poor decisions"),
         (ActivityType.Streaming, "Streaming the downfall of a once-stable man"),
         (ActivityType.Playing,   "Playing coinflip with my remaining dignity"),
-        (ActivityType.Watching,  "Watching a 0.1% jackpot I won't win"),
+        (ActivityType.Watching,  "Watching a 0.1% jackpot I won'guildCommands win"),
         (ActivityType.Listening, "Listening to the roulette wheel mock me"),
         (ActivityType.Streaming, "Streaming rock bottom in QHD"),
         (ActivityType.Playing,   "Playing odds that are definitely rigged"),
@@ -176,9 +177,22 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
             string? env = Environment.GetEnvironmentVariable("ENVIRONMENT");
 
             if (!string.IsNullOrEmpty(env) && env.Equals("production", StringComparison.OrdinalIgnoreCase))
+            {
+                // Unregister all guild-specific commands to avoid duplicates
+                IReadOnlyCollection<RestGuildCommand> guildCommands = await client.Rest.GetGuildApplicationCommands(227048721710317569); // Clean up guild commands
+
+                foreach (RestGuildCommand command in guildCommands)
+                {
+                    command?.DeleteAsync();
+                }
+
                 await interactionService.RegisterCommandsGloballyAsync(); // For production
+            }
             else
+            {
+                //await client.Rest.DeleteAllGlobalCommandsAsync(); // Avoid duplicates during development
                 await interactionService.RegisterCommandsToGuildAsync(227048721710317569); // For local development / testing guild
+            }
 
             _cts = new CancellationTokenSource();
 
