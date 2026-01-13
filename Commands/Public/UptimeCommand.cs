@@ -1,5 +1,5 @@
-﻿using Discord;
-using Discord.Interactions;
+﻿using Discord.Interactions;
+using Discord;
 
 namespace tsgsBot_C_.Commands.Public
 {

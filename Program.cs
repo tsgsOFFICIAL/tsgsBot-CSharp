@@ -181,8 +181,8 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
 
             _cts = new CancellationTokenSource();
 
-            // Start cycling activities every ~1 minute
-            _activityTimer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+            // Start cycling activities every ~5 minutes
+            _activityTimer = new PeriodicTimer(TimeSpan.FromMinutes(5));
             _ = Task.Run(() => ActivityLoopAsync(_cts.Token));
 
             // Set initial activity

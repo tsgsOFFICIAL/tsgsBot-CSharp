@@ -1,13 +1,12 @@
 ﻿using System.Text.RegularExpressions;
 using Discord.Interactions;
+using Discord.WebSocket;
 using Discord;
 
 namespace tsgsBot_C_.Commands.Public
 {
     public sealed class LiamCommand : LoggedCommandModule
     {
-        private const ulong LiamChannelId = 1347675225873186950; // #liams-memes
-
         private static readonly Regex UrlRegex = new(@"\bhttps?://\S+\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         [SlashCommand("liam", "Fetches a random meme from the sacred #liams-memes channel.")]
@@ -20,9 +19,9 @@ namespace tsgsBot_C_.Commands.Public
 
             try
             {
-                IMessageChannel? channel = Context.Client.GetChannel(LiamChannelId) as IMessageChannel;
+                SocketTextChannel? liamChannel = Context.Guild.TextChannels.FirstOrDefault(channel => channel.Name == "liams-memes");
 
-                if (channel == null || channel is not ITextChannel textChannel)
+                if (liamChannel == null || liamChannel is not ITextChannel textChannel)
                 {
                     await FollowupAsync("Couldn't find the sacred Liam channel. RIP memes.", ephemeral: true);
                     return;
@@ -30,7 +29,7 @@ namespace tsgsBot_C_.Commands.Public
 
                 // Fetch messages in batches (up to ~10,000 – Discord.Net caps at 100 per fetch)
                 List<IMessage> allMessages = new List<IMessage>();
-                ulong? lastId = (ulong?)null;
+                ulong? lastId = null;
                 const int batchSize = 100;
 
                 for (int i = 0; i < 100; i++) // max 10,000 messages
@@ -39,12 +38,14 @@ namespace tsgsBot_C_.Commands.Public
                         ? await textChannel.GetMessagesAsync(lastId.Value, Direction.Before, batchSize).FlattenAsync()
                         : await textChannel.GetMessagesAsync(batchSize).FlattenAsync();
                     List<IMessage> batch = messages.ToList();
-                    if (!batch.Any()) break;
+                    if (!batch.Any())
+                        break;
 
                     allMessages.AddRange(batch);
                     lastId = batch.Last().Id;
 
-                    if (batch.Count < batchSize) break;
+                    if (batch.Count < batchSize)
+                        break;
                 }
 
                 if (allMessages.Count == 0)

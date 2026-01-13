@@ -7,14 +7,15 @@ namespace tsgsBot_C_.Commands.Public
 {
     public sealed class VerifyCommand : LoggedCommandModule
     {
-        private const ulong SupporterRoleId = 1452007884169678948UL; // TODO: Move to config / DB
-        private const string ValidCode = "KK0MKEYJENWV";             // TODO: Move to secure storage / DB
+        private const string ValidCode = "KK0MKEYJENWV"; // TODO: Move to secure storage / DB
 
         [SlashCommand("verify", "Verify your donation to receive the exclusive supporter role")]
         [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task VerifyAsync([Summary("code", "Your unique verification code")] string code)
         {
+            SocketRole? supportRole = Context.Guild.Roles.FirstOrDefault(role => role.Name.Equals("supporter", StringComparison.CurrentCultureIgnoreCase));
+
             // 1. Log the command usage (with the code for audit/security)
             await LogCommandAsync(("code", code));
 
@@ -23,11 +24,15 @@ namespace tsgsBot_C_.Commands.Public
 
             string message;
 
-            if (code != ValidCode)
+            if (supportRole == null)
+            {
+                message = "The supporter role does not exist on this server. Please contact an admin.";
+            }
+            else if (code != ValidCode)
             {
                 message = "Invalid verification code. Please check your code and try again.";
             }
-            else if (guildUser.Roles.Any(r => r.Id == SupporterRoleId))
+            else if (guildUser.Roles.Any(r => r.Id == supportRole.Id))
             {
                 message = "You already have the supporter role — thank you for your support! ❤️";
             }
@@ -35,7 +40,7 @@ namespace tsgsBot_C_.Commands.Public
             {
                 try
                 {
-                    await guildUser.AddRoleAsync(SupporterRoleId);
+                    await guildUser.AddRoleAsync(supportRole);
                     message = "Thank you for verifying your donation! You've been given the supporter role 🎉";
                 }
                 catch (HttpException ex) when (ex.DiscordCode == DiscordErrorCode.MissingPermissions)

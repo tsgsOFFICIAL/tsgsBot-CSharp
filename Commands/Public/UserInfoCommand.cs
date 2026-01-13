@@ -6,31 +6,19 @@ namespace tsgsBot_C_.Commands.Public
 {
     public sealed class UserInfoCommand : LoggedCommandModule
     {
-        private const ulong TargetGuildId = 227048721710317569UL; // Only used as fallback
-
         [SlashCommand("userinfo", "Get user info")]
         [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task UserInfoAsync([Summary("user", "The user to show information on")] IUser targetUser)
         {
             // 1. Log the command usage
-            await LogCommandAsync(("targetUserId", targetUser.Id));
+            await LogCommandAsync(("targetUserId", targetUser));
 
             // 2. Try to get guild member info (from current guild if possible)
             SocketGuildUser? member = null;
             if (Context.Guild != null)
             {
                 member = Context.Guild.GetUser(targetUser.Id);
-            }
-
-            // If still null and it's the target guild, try fetching it
-            if (member == null && Context.Guild?.Id != TargetGuildId)
-            {
-                SocketGuild targetGuild = Context.Client.GetGuild(TargetGuildId);
-                if (targetGuild != null)
-                {
-                    member = targetGuild.GetUser(targetUser.Id);
-                }
             }
 
             // 3. Build embed
@@ -68,7 +56,7 @@ namespace tsgsBot_C_.Commands.Public
                     rolesText = "None";
                 }
             }
-            embed.AddField("Roles", rolesText, inline: false);
+            embed.AddField("Roles", string.IsNullOrEmpty(rolesText) ? "None" : rolesText, inline: false);
 
             // 4. Send ephemeral embed response
             await RespondAsync(embed: embed.Build(), ephemeral: true);

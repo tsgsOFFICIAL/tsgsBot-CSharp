@@ -6,8 +6,6 @@ namespace tsgsBot_C_.Commands.Public
 {
     public sealed class ReportUserCommand : LoggedCommandModule
     {
-        private const ulong ReportsChannelId = 690284349521788940UL;
-
         [SlashCommand("report", "Report a user to the moderators")]
         [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
@@ -15,11 +13,12 @@ namespace tsgsBot_C_.Commands.Public
             [Summary("user", "The user to report")] IUser targetUser,
             [Summary("reason", "What has this person done?")] string reason)
         {
-            await LogCommandAsync(("target", targetUser.Id), ("reason", reason));
+            await LogCommandAsync(("target", targetUser), ("reason", reason));
 
             SocketUser reporter = Context.User;
+            SocketTextChannel? ReportsChannel = Context.Guild.TextChannels.FirstOrDefault(channel => channel.Name == "reports");
 
-            if (Context.Client.GetChannel(ReportsChannelId) is not IMessageChannel reportChannel)
+            if (ReportsChannel == null)
             {
                 await RespondAsync("⚠️ Reports channel not found.", ephemeral: true);
                 return;
@@ -29,7 +28,7 @@ namespace tsgsBot_C_.Commands.Public
 
             try
             {
-                await reportChannel.SendMessageAsync(reportText);
+                await ReportsChannel.SendMessageAsync(reportText);
                 await RespondAsync($"Successfully reported <@{targetUser.Id}> for \"{reason}\"!", ephemeral: true);
             }
             catch

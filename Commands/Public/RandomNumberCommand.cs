@@ -12,7 +12,7 @@ namespace tsgsBot_C_.Commands.Public
             [Summary("min", "Minimum value (inclusive)")] int min = 1,
             [Summary("max", "Maximum value (inclusive)")] int max = 100)
         {
-            await LogCommandAsync();
+            await LogCommandAsync(("min", min), ("max", max));
 
             if (min >= max)
             {

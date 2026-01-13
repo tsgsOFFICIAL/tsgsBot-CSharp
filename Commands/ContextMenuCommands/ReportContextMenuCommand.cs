@@ -6,19 +6,19 @@ namespace tsgsBot_C_.Commands.ContextMenuCommands
 {
     public sealed class ReportContextMenuCommand : LoggedCommandModule
     {
-        private const ulong ReportsChannelId = 690284349521788940;
-
         [MessageCommand("Report Message")]
         [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task ReportMessageAsync(IMessage message)
         {
-            await LogCommandAsync(("messageId", message.Id), ("messageAuthorId", message.Author.Id));
             await DeferAsync(ephemeral: true);
 
-            SocketUser reporter = Context.User;
+            await LogCommandAsync(("messageId", message.Id), ("messageAuthorId", message.Author.Id));
 
-            if (Context.Client.GetChannel(ReportsChannelId) is not IMessageChannel channel)
+            SocketUser reporter = Context.User;
+            SocketTextChannel? ReportsChannel = Context.Guild.TextChannels.FirstOrDefault(channel => channel.Name == "reports");
+
+            if (ReportsChannel == null)
             {
                 await FollowupAsync("⚠️ Couldn't find the reports channel.", ephemeral: true);
                 return;
@@ -44,7 +44,7 @@ namespace tsgsBot_C_.Commands.ContextMenuCommands
                 embed.AddField("Attachments", string.Join("\n", message.Attachments.Select(a => a.Url)), inline: false);
             }
 
-            await channel.SendMessageAsync(embed: embed.Build());
+            await ReportsChannel.SendMessageAsync(embed: embed.Build());
 
             await FollowupAsync("✅ The message has been reported to the moderators.", ephemeral: true);
         }

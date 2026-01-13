@@ -19,24 +19,25 @@
 - [x] uptime
 - [x] userinfo
 - [x] verify
+- [x] mynick
 
 ### ~~Restricted~~
 - [x] giveaway
 - [x] poll
 
 ### Moderation
-- [ ] updateusers
-- [ ] unmute
-- [ ] mute
-- [ ] unmute_cm_msg
-- [ ] unmute_cm_user
-- [ ] status
-- [ ] say
-- [ ] role-remove
-- [ ] role-add
+- [ ] ~~updateusers~~
+- [x] mute
+- [x] mute_cm_msg
+- [x] mute_cm_user
+- [x] unmute
+- [x] unmute_cm_msg
+- [x] unmute_cm_user
+- [x] status
+- [x] say
+- [x] role-remove
+- [x] role-add
 - [ ] purge
-- [ ] nick
-- [ ] mute_cm_msg
-- [ ] mute_cm_user
-- [ ] dm
-- [ ] clearlog
+- [x] nick
+- [x] dm
+- [ ] ~~clearlog~~

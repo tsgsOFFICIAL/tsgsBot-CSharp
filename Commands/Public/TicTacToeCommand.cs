@@ -11,7 +11,7 @@ namespace tsgsBot_C_.Commands.Public
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task TicTacToeAsync(IUser opponent)
         {
-            await LogCommandAsync();
+            await LogCommandAsync(("opponent", opponent));
 
             SocketUser p1 = Context.User;
             IUser p2 = opponent;

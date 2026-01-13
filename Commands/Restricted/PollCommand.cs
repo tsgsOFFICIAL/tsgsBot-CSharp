@@ -19,7 +19,6 @@ namespace tsgsBot_C_.Commands.Restricted
             SelectMenuBuilder durationMenu = new SelectMenuBuilder()
                 .WithCustomId("poll_duration")
                 .WithPlaceholder("How long should the poll last?")
-                .AddOption("1 minute", "1")
                 .AddOption("5 minutes", "5")
                 .AddOption("15 minutes", "15")
                 .AddOption("30 minutes", "30")

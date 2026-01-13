@@ -1,4 +1,5 @@
 ﻿using Discord.Interactions;
+using Discord.WebSocket;
 using System.Text;
 using Discord;
 
@@ -6,15 +7,15 @@ namespace tsgsBot_C_
 {
     public abstract class LoggedCommandModule : InteractionModuleBase<SocketInteractionContext>
     {
-        private const ulong LogChannelId = 690287854919745617;
-
         /// <summary>
         /// Logs this command execution to the fixed log channel.
         /// Pass parameters as (name, value) pairs.
         /// </summary>
         protected async Task LogCommandAsync(params (string Name, object? Value)[] options)
         {
-            if (Context.Client.GetChannel(LogChannelId) is not IMessageChannel logChannel)
+            SocketTextChannel? logChannel = Context.Guild.TextChannels.FirstOrDefault(channel => channel.Name == "command-log");
+
+            if (logChannel == null)
             {
                 await RespondAsync("⚠️ Log channel not found — command logged internally only.", ephemeral: true);
                 return;
@@ -47,7 +48,7 @@ namespace tsgsBot_C_
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to log command to channel {LogChannelId}: {ex.Message}");
+                Console.WriteLine($"Failed to log command to channel {logChannel}: {ex.Message}");
                 Console.WriteLine(logMessage);
             }
         }
