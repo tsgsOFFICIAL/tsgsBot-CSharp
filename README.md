@@ -1,7 +1,7 @@
 ﻿# tsgsBot C#
 
 ## Commands that needs ported:
-### public
+### ~~public~~
 - [x] tictactoe
 - [x] autoaccept
 - [x] csstats
