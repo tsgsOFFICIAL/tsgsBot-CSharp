@@ -8,7 +8,7 @@ namespace tsgsBot_C_.Commands.Moderation
     public sealed class MuteCommands : LoggedCommandModule
     {
         [SlashCommand("mute", "Mutes a member by giving them the 'Muted' role.")]
-        [RequireContext(ContextType.Guild)]
+        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.MuteMembers)]
         public async Task MuteAsync(
             [Summary("target", "The member to mute")] IGuildUser target,
@@ -23,7 +23,7 @@ namespace tsgsBot_C_.Commands.Moderation
         }
 
         [UserCommand("Mute User")]
-        [RequireContext(ContextType.Guild)]
+        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.MuteMembers)]
         public async Task MuteUserCmAsync(IGuildUser target)
         {
@@ -32,7 +32,7 @@ namespace tsgsBot_C_.Commands.Moderation
         }
 
         [MessageCommand("Mute Message Author")]
-        [RequireContext(ContextType.Guild)]
+        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.MuteMembers)]
         public async Task MuteMessageCmAsync(IMessage message)
         {

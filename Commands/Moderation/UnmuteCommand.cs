@@ -7,7 +7,7 @@ namespace tsgsBot_C_.Commands.Moderation
     public sealed class UnmuteCommand : LoggedCommandModule
     {
         [SlashCommand("unmute", "Unmutes a member by removing the 'Muted' role.")]
-        [RequireContext(ContextType.Guild)]
+        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.MuteMembers)]
         public async Task UnmuteAsync(
             [Summary("target", "The member to unmute")] IGuildUser target)
@@ -17,7 +17,7 @@ namespace tsgsBot_C_.Commands.Moderation
         }
 
         [UserCommand("Unmute User")]
-        [RequireContext(ContextType.Guild)]
+        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.MuteMembers)]
         public async Task UnmuteUserCmAsync(IGuildUser target)
         {
@@ -26,7 +26,7 @@ namespace tsgsBot_C_.Commands.Moderation
         }
 
         [MessageCommand("Unmute Message Author")]
-        [RequireContext(ContextType.Guild)]
+        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.MuteMembers)]
         public async Task UnmuteMessageCmAsync(IMessage message)
         {
