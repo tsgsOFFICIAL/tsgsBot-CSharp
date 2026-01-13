@@ -20,9 +20,9 @@
 - [x] userinfo
 - [x] verify
 
-### Restricted
-- [ ] giveaway
-- [ ] poll
+### ~~Restricted~~
+- [x] giveaway
+- [x] poll
 
 ### Moderation
 - [ ] updateusers
