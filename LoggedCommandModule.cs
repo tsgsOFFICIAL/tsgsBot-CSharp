@@ -13,6 +13,9 @@ namespace tsgsBot_C_
         /// </summary>
         protected async Task LogCommandAsync(params (string Name, object? Value)[] options)
         {
+            if (Context.Guild == null)
+                return; // Don't log DMs
+
             SocketTextChannel? logChannel = Context.Guild.TextChannels.FirstOrDefault(channel => channel.Name == "command-log");
 
             if (logChannel == null)
@@ -20,7 +23,7 @@ namespace tsgsBot_C_
                 await RespondAsync("⚠️ Log channel not found — command logged internally only.", ephemeral: true);
                 return;
             }
-            
+
             StringBuilder sb = new StringBuilder();
 
             foreach ((string? name, object? value) in options)

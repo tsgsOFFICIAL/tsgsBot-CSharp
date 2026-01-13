@@ -183,14 +183,17 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
 
                 foreach (RestGuildCommand command in guildCommands)
                 {
-                    command?.DeleteAsync();
+                    if (command != null)
+                    {
+                        await command.DeleteAsync();
+                    }
                 }
 
                 await interactionService.RegisterCommandsGloballyAsync(); // For production
             }
             else
             {
-                //await client.Rest.DeleteAllGlobalCommandsAsync(); // Avoid duplicates during development
+                await client.Rest.DeleteAllGlobalCommandsAsync(); // Avoid duplicates during development
                 await interactionService.RegisterCommandsToGuildAsync(227048721710317569); // For local development / testing guild
             }
 
