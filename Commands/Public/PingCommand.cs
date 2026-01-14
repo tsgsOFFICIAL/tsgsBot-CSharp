@@ -1,5 +1,4 @@
 ﻿using Discord.Interactions;
-using System.Diagnostics;
 using Discord;
 
 namespace tsgsBot_C_.Commands.Public
@@ -12,24 +11,22 @@ namespace tsgsBot_C_.Commands.Public
         public async Task PingAsync()
         {
             await LogCommandAsync();
-            await DeferAsync();
+
+            // Defer to give the bot time to respond
+            await DeferAsync(ephemeral: true);
 
             // Bot -> Discord latency
             int discordLatency = Context.Client.Latency;
 
-            // Measure Bot -> User latency
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            await RespondAsync("Calculating...", ephemeral: true);
-            stopwatch.Stop();
+            // Bot -> User latency = now - interaction created time
+            TimeSpan userLatency = DateTimeOffset.UtcNow - Context.Interaction.CreatedAt;
 
-            long userLatency = stopwatch.ElapsedMilliseconds;
-
-            // Update message with full latency info
+            // Send final message
             await ModifyOriginalResponseAsync(msg =>
             {
                 msg.Content = $"🏓 Pong!\n" +
                               $"**Latency (Bot → Discord):** {discordLatency} ms\n" +
-                              $"**Latency (Bot → You):** {userLatency} ms";
+                              $"**Latency (Bot → You):** {userLatency.TotalMilliseconds:F0} ms";
             });
         }
     }
