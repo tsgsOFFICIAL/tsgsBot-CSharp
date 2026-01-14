@@ -193,7 +193,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
 
                 foreach (SlashCommandInfo? command in interactionService.SlashCommands)
                 {
-                    Console.WriteLine($"Command: {command.Name}, Contexts: {string.Join(", ", command.Attributes.OfType<CommandContextTypeAttribute>().FirstOrDefault()?.ContextTypes ?? new List<InteractionContextType>())}");
+                    Console.WriteLine($"Command: {command.Name}, Contexts: {string.Join(", ", command.ContextTypes ?? new List<InteractionContextType>())}");
                 }
             }
             else
