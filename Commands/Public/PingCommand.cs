@@ -3,10 +3,11 @@ using Discord;
 
 namespace tsgsBot_C_.Commands.Public
 {
+    [CommandContextType(InteractionContextType.Guild, InteractionContextType.BotDm)]
+    [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
     public sealed class PingCommand : LoggedCommandModule
     {
         [SlashCommand("ping", "Check the bot's latency.")]
-        [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task PingAsync()
         {
             await LogCommandAsync();
