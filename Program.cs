@@ -190,6 +190,11 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
                 }
 
                 await interactionService.RegisterCommandsGloballyAsync(); // For production
+
+                foreach (SlashCommandInfo? command in interactionService.SlashCommands)
+                {
+                    Console.WriteLine($"Command: {command.Name}, Contexts: {string.Join(", ", command.Attributes.OfType<CommandContextTypeAttribute>().FirstOrDefault()?.ContextTypes ?? new List<InteractionContextType>())}");
+                }
             }
             else
             {
