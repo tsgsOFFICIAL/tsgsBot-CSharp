@@ -5,13 +5,6 @@ namespace tsgsBot_C_.Services;
 
 public sealed class MemberCounterService(DiscordSocketClient client, ILogger<MemberCounterService>? logger = null)
 {
-
-    // CONFIG
-    private const ulong GuildId = 227048721710317569;
-    private const ulong MemberChannelId = 604739962629521418;
-    private const ulong BotChannelId = 604739965124870164;
-    private const ulong CombinedChannelId = 604739960146493441;
-
     /// <summary>
     /// Asynchronously updates the member, bot, and combined member count channels to reflect the current number of
     /// users in the guild.
@@ -22,10 +15,10 @@ public sealed class MemberCounterService(DiscordSocketClient client, ILogger<Mem
     /// <returns>A task that represents the asynchronous update operation.</returns>
     public async Task UpdateAsync()
     {
-        SocketGuild guild = client.GetGuild(GuildId);
+        SocketGuild guild = client.GetGuild(SharedProperties.Instance.GuildId);
         if (guild == null)
         {
-            logger?.LogWarning("Guild {GuildId} not found or not cached.", GuildId);
+            logger?.LogWarning("Guild {GuildId} not found or not cached.", SharedProperties.Instance.GuildId);
             return;
         }
 
@@ -46,9 +39,9 @@ public sealed class MemberCounterService(DiscordSocketClient client, ILogger<Mem
         int total = humans + bots;
 
         // Rename channels
-        await RenameChannelAsync(MemberChannelId, $"Member{Plural(humans)}: {humans}");
-        await RenameChannelAsync(BotChannelId, $"Bot{Plural(bots)}: {bots}");
-        await RenameChannelAsync(CombinedChannelId, $"All member{Plural(total)}: {total}");
+        await RenameChannelAsync(SharedProperties.Instance.MemberChannelId, $"Member{Plural(humans)}: {humans}");
+        await RenameChannelAsync(SharedProperties.Instance.BotChannelId, $"Bot{Plural(bots)}: {bots}");
+        await RenameChannelAsync(SharedProperties.Instance.CombinedChannelId, $"All member{Plural(total)}: {total}");
 
         logger?.LogInformation("Member counter updated → Humans: {Humans}, Bots: {Bots}, Total: {Total}", humans, bots, total);
     }

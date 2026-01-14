@@ -3,9 +3,9 @@ using Discord.Interactions;
 using tsgsBot_C_.Services;
 using Discord.WebSocket;
 using System.Reflection;
+using Discord.Rest;
 using tsgsBot_C_;
 using Discord;
-using Discord.Rest;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
@@ -39,11 +39,11 @@ builder.Services.AddSingleton<SupportFormStateService>();
 builder.Services.AddSingleton<PollFormStateService>();
 builder.Services.AddSingleton<MemberCounterService>();
 
-// Optional: add hosted service that manages lifetime of the Discord connection + command registration
+// A hosted service that manages lifetime of the Discord connection + command registration
 builder.Services.AddHostedService<DiscordBotHostedService>();
 
 // ────────────────────────────────────────
-// 2. Optional: add health checks (very useful when hosting in containers/k8s)
+// 2. A health checks
 builder.Services.AddHealthChecks();
 
 // ────────────────────────────────────────
@@ -179,7 +179,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
             if (!string.IsNullOrEmpty(env) && env.Equals("production", StringComparison.OrdinalIgnoreCase))
             {
                 // Unregister all guild-specific commands to avoid duplicates
-                IReadOnlyCollection<RestGuildCommand> guildCommands = await client.Rest.GetGuildApplicationCommands(227048721710317569); // Clean up guild commands
+                IReadOnlyCollection<RestGuildCommand> guildCommands = await client.Rest.GetGuildApplicationCommands(SharedProperties.Instance.GuildId); // Clean up guild commands
 
                 foreach (RestGuildCommand command in guildCommands)
                 {
@@ -194,7 +194,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
             else
             {
                 await client.Rest.DeleteAllGlobalCommandsAsync(); // Avoid duplicates during development
-                await interactionService.RegisterCommandsToGuildAsync(227048721710317569); // For local development / testing guild
+                await interactionService.RegisterCommandsToGuildAsync(SharedProperties.Instance.GuildId); // For local development / testing guild
             }
 
             _cts = new CancellationTokenSource();
