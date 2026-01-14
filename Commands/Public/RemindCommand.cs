@@ -6,7 +6,7 @@ namespace tsgsBot_C_.Commands.Public
     public sealed class RemindCommand : LoggedCommandModule
     {
         [SlashCommand("remind", "Set a reminder for a task at a specific time")]
-        [CommandContextType(InteractionContextType.Guild | InteractionContextType.BotDm)]
+        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task RemindAsync(
             [Summary("task", "The task or item to remind you about")] string task,
