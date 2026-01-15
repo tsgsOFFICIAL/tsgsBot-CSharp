@@ -1,8 +1,7 @@
-﻿using Discord;
-using Npgsql;
-using NpgsqlTypes;
+﻿using tsgsBot_C_.Models;
 using System.Text.Json;
-using tsgsBot_C_.Models;
+using NpgsqlTypes;
+using Npgsql;
 
 namespace tsgsBot_C_.Services
 {
@@ -34,7 +33,8 @@ namespace tsgsBot_C_.Services
                     emojis JSONB NOT NULL,
                     end_time TIMESTAMP NOT NULL,
                     has_ended BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT (TIMEZONE('UTC', NOW()))
+                    created_at TIMESTAMP DEFAULT (TIMEZONE('UTC', NOW())),
+                    created_by NUMERIC NOT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_active_polls_active 
@@ -65,14 +65,14 @@ namespace tsgsBot_C_.Services
         /// <param name="emojis">List of emojis corresponding to answers.</param>
         /// <param name="endTime">The poll end time (in UTC).</param>
         /// <returns>The ID of the newly created poll.</returns>
-        public async Task<int> CreatePollAsync(string messageId, string channelId, string guildId, string question, List<string> answers, List<string> emojis, DateTime endTime)
+        public async Task<int> CreatePollAsync(string messageId, string channelId, string guildId, string question, List<string> answers, List<string> emojis, DateTime endTime, ulong createdByUserId)
         {
             string answersJson = JsonSerializer.Serialize(answers);
             string emojisJson = JsonSerializer.Serialize(emojis);
 
             const string query = @"
-                INSERT INTO active_polls (message_id, channel_id, guild_id, question, answers, emojis, end_time)
-                VALUES (@messageId, @channelId, @guildId, @question, @answers, @emojis, @endTime)
+                INSERT INTO active_polls (message_id, channel_id, guild_id, question, answers, emojis, end_time, created_by)
+                VALUES (@messageId, @channelId, @guildId, @question, @answers, @emojis, @endTime, @createdByUserId)
                 RETURNING id;";
 
             NpgsqlParameter[] parameters = new NpgsqlParameter[]
@@ -89,7 +89,8 @@ namespace tsgsBot_C_.Services
                 {
                     Value = emojisJson
                 },
-                new("@endTime", DateTime.SpecifyKind(endTime, DateTimeKind.Unspecified))
+                new("@endTime", DateTime.SpecifyKind(endTime, DateTimeKind.Unspecified)),
+                new("@createdByUserId", createdByUserId)
             };
 
             object? result = await _dbHelper.ExecuteScalarAsync(query, parameters);
@@ -121,7 +122,8 @@ namespace tsgsBot_C_.Services
                     JsonSerializer.Deserialize<List<string>>(reader.GetString(reader.GetOrdinal("emojis"))) ?? new List<string>(),
                     reader.GetDateTime(reader.GetOrdinal("end_time")),
                     reader.GetBoolean(reader.GetOrdinal("has_ended")),
-                    reader.GetDateTime(reader.GetOrdinal("created_at"))
+                    reader.GetDateTime(reader.GetOrdinal("created_at")),
+                    Convert.ToUInt64(reader.GetValue(reader.GetOrdinal("created_by")))
                 );
             }
 
@@ -150,7 +152,8 @@ namespace tsgsBot_C_.Services
                     JsonSerializer.Deserialize<List<string>>(reader.GetString(reader.GetOrdinal("emojis"))) ?? new List<string>(),
                     reader.GetDateTime(reader.GetOrdinal("end_time")),
                     reader.GetBoolean(reader.GetOrdinal("has_ended")),
-                    reader.GetDateTime(reader.GetOrdinal("created_at"))
+                    reader.GetDateTime(reader.GetOrdinal("created_at")),
+                    Convert.ToUInt64(reader.GetValue(reader.GetOrdinal("created_by")))
                 ));
             }
 

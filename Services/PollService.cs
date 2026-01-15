@@ -1,4 +1,5 @@
-﻿using tsgsBot_C_.Models;
+﻿using Discord.WebSocket;
+using tsgsBot_C_.Models;
 using Discord;
 
 namespace tsgsBot_C_.Services
@@ -31,7 +32,7 @@ namespace tsgsBot_C_.Services
         /// <param name="pollId">The unique identifier of the poll to finalize. Used to update poll status and retrieve poll data.</param>
         /// <returns>A task that represents the asynchronous operation of finalizing the poll. The task completes when the poll
         /// results have been posted and the original message deleted.</returns>
-        public async Task FinalizePollAsync(IUserMessage message, string question, List<string> answers, List<string> emojis, int pollId)
+        public async Task FinalizePollAsync(IUserMessage message, string question, List<string> answers, List<string> emojis, int pollId, ulong createdByUserId)
         {
             try
             {
@@ -98,9 +99,15 @@ namespace tsgsBot_C_.Services
                     lines.Add(line);
                 }
 
+                // Get the display name and avatar URL safely
+                IUser createdByUser = await message.Channel.GetUserAsync(createdByUserId);
+                string displayName = (createdByUser as SocketGuildUser)?.Nickname ?? "Unknown";
+                string avatarUrl = createdByUser.GetAvatarUrl(size: 512);
+
                 // Results embed
                 Embed embed = new EmbedBuilder()
                     .WithTitle("Poll Ended – Final Results")
+                    .WithAuthor(displayName, avatarUrl)
                     .WithDescription($"**{question}**\n\n{string.Join("\n", lines)}\n\n**Total votes:** {totalVotes}")
                     .WithColor(totalVotes > 0 ? new Color(0x00FF00) : new Color(0x992D22))
                     .WithCurrentTimestamp()

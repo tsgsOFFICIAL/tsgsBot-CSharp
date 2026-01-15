@@ -14,6 +14,7 @@
     /// <param name="EndTime">The date and time when the poll is scheduled to end, in UTC.</param>
     /// <param name="HasEnded">true if the poll has ended; otherwise, false.</param>
     /// <param name="CreatedAt">The date and time when the poll was created, in UTC.</param>
+    /// <param name="CreatedByUserId">The identifier of the user who created the poll.</param>
     public record DatabasePollModel(
         int Id,
         string MessageId,
@@ -24,6 +25,7 @@
         List<string> Emojis,
         DateTime EndTime,
         bool HasEnded,
-        DateTime CreatedAt
+        DateTime CreatedAt,
+        ulong CreatedByUserId
     );
 }

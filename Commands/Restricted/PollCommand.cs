@@ -192,6 +192,10 @@ namespace tsgsBot_C_.Commands.Restricted
             DateTime endTime = DateTime.UtcNow.AddMinutes(state.DurationMinutes);
             EmbedBuilder pollEmbed = new EmbedBuilder()
                 .WithTitle("📊 Poll")
+                .WithAuthor(
+                    (Context.User as SocketGuildUser)?.Nickname ?? Context.User.Username,
+                    Context.User.GetAvatarUrl(size: 512),
+                    "https://discord.gg/Cddu5aJ")
                 .WithDescription(
                     $"{state.ModalData.Question}\n\n" +
                     string.Join("\n", answers.Select((a, i) => $"{emojis[i]} {a}")) +
@@ -214,7 +218,8 @@ namespace tsgsBot_C_.Commands.Restricted
                 state.ModalData!.Question,
                 [.. answers],
                 emojis,
-                endTime
+                endTime,
+                Context.User.Id
             );
 
             // Schedule finalization in background
@@ -228,7 +233,7 @@ namespace tsgsBot_C_.Commands.Restricted
 
                     // Fetch fresh message for reactions
                     if (await pollMessage.Channel.GetMessageAsync(pollMessage.Id) is IUserMessage message)
-                        await pollService.FinalizePollAsync(message, state.ModalData!.Question, [.. answers], emojis, pollId);
+                        await pollService.FinalizePollAsync(message, state.ModalData!.Question, [.. answers], emojis, pollId, Context.User.Id);
                 }
                 catch (Exception ex)
                 {

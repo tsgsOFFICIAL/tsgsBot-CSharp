@@ -21,7 +21,7 @@ namespace tsgsBot_C_.Commands.Public
                 member = Context.Guild.GetUser(targetUser.Id);
             }
 
-            string displayName = (Context.User as SocketGuildUser)?.Nickname ?? Context.User.Username;
+            string displayName = (targetUser as SocketGuildUser)?.Nickname ?? targetUser.Username;
 
             // 3. Build embed
             EmbedBuilder embed = new EmbedBuilder()

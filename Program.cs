@@ -337,7 +337,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
                     if (timeLeft <= TimeSpan.Zero)
                     {
                         // Poll has already expired; finalize immediately
-                        await pollService.FinalizePollAsync(message, poll.Question, poll.Answers, poll.Emojis, poll.Id);
+                        await pollService.FinalizePollAsync(message, poll.Question, poll.Answers, poll.Emojis, poll.Id, poll.CreatedByUserId);
                     }
                     else
                     {
@@ -347,7 +347,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
                             try
                             {
                                 await Task.Delay(timeLeft, _cts!.Token);
-                                await pollService.FinalizePollAsync(message, poll.Question, poll.Answers, poll.Emojis, poll.Id);
+                                await pollService.FinalizePollAsync(message, poll.Question, poll.Answers, poll.Emojis, poll.Id, poll.CreatedByUserId);
                             }
                             catch (TaskCanceledException)
                             {
