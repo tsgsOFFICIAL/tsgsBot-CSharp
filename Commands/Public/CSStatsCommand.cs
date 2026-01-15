@@ -28,7 +28,6 @@ namespace tsgsBot_C_.Commands.Public
         ];
 
         [SlashCommand("csstats", "Fetch CS:GO/CS2 stats for a player")]
-        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task CsStatsAsync(
             [Summary("identifier", "Steam ID64, profile URL, or vanity name (e.g. tsgs)")]

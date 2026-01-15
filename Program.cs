@@ -83,7 +83,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
         // Rust
         (ActivityType.Playing,   "Playing Rust with 1 rock and 0 hope"),
         (ActivityType.Watching,  "Watching my base decay in real time"),
-        (ActivityType.Listening, "Listening to footsteps that aren'guildCommands mine"),
+        (ActivityType.Listening, "Listening to footsteps that aren't mine"),
         (ActivityType.Competing, "Competing in naked Olympics at Outpost"),
         (ActivityType.Streaming, "Streaming my 8th raid failure today"),
         (ActivityType.Playing,   "Playing hide and seek with roof campers"),
@@ -113,7 +113,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
         (ActivityType.Competing, "Competing in a tournament of poor decisions"),
         (ActivityType.Streaming, "Streaming the downfall of a once-stable man"),
         (ActivityType.Playing,   "Playing coinflip with my remaining dignity"),
-        (ActivityType.Watching,  "Watching a 0.1% jackpot I won'guildCommands win"),
+        (ActivityType.Watching,  "Watching a 0.1% jackpot I won't win"),
         (ActivityType.Listening, "Listening to the roulette wheel mock me"),
         (ActivityType.Streaming, "Streaming rock bottom in QHD"),
         (ActivityType.Playing,   "Playing odds that are definitely rigged"),

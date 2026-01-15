@@ -7,7 +7,6 @@ namespace tsgsBot_C_.Commands.Public
     public sealed class StreamDropCollectorCommand : LoggedCommandModule
     {
         [SlashCommand("streamdropcollector", "Get directions to download and install the StreamDropCollector program")]
-        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public Task StreamDropCollectorLongAsync() => SendInfoEmbedAsync();
 

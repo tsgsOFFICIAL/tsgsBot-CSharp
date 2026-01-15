@@ -7,7 +7,6 @@ namespace tsgsBot_C_.Commands.Public
     public sealed class AutoAcceptCommand : LoggedCommandModule
     {
         [SlashCommand("autoaccept", "Get directions to download and install the AutoAccept program for CS2")]
-        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task AutoAcceptAsync()
         {

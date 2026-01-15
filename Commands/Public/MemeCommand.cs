@@ -9,7 +9,6 @@ namespace tsgsBot_C_.Commands.Public
         private static readonly HttpClient _httpClient = new HttpClient();
 
         [SlashCommand("meme", "Fetches a random meme from Reddit.")]
-        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task MemeAsync(
             [Summary("subreddit", "Subreddit to fetch from (default: comedyheaven)")]

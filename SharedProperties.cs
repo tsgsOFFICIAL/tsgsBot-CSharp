@@ -19,6 +19,11 @@
         public ulong BotChannelId = 604739965124870164;
         public ulong CombinedChannelId = 604739960146493441;
 
+        //public ulong GuildId { get; private set; } = 1120646718132867132;
+        //public ulong MemberChannelId = 1120646719269511212;
+        //public ulong BotChannelId = 1120646719269511213;
+        //public ulong CombinedChannelId = 1461285047704227850;
+
         private SharedProperties()
         {
             UpTime = DateTimeOffset.UtcNow;

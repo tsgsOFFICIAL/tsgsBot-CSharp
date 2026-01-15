@@ -6,7 +6,6 @@ namespace tsgsBot_C_.Commands.Public
     public sealed class InviteCommand() : LoggedCommandModule
     {
         [SlashCommand("invite", "Get the invite URL")]
-        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task InviteAsync()
         {

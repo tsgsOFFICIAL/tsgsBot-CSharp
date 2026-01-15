@@ -6,7 +6,6 @@ namespace tsgsBot_C_.Commands.Public
     public sealed class UptimeCommand : LoggedCommandModule
     {
         [SlashCommand("uptime", "Displays the bot's uptime.")]
-        [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task UptimeAsync()
         {
