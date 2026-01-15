@@ -126,6 +126,7 @@ namespace tsgsBot_C_.Commands.Restricted
             // Preview embed
             EmbedBuilder previewEmbed = new EmbedBuilder()
                 .WithTitle("📊 Poll (Preview)")
+                //.WithAuthor(Context.User.GlobalName, Context.User.GetAvatarUrl(size: 512), "https://discord.gg/Cddu5aJ")
                 .WithDescription(
                     $"{question}\n\n" +
                     string.Join("\n", answers.Select((a, i) => $"{emojis[i]} {a}")) +

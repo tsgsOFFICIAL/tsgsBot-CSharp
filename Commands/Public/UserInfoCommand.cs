@@ -28,7 +28,7 @@ namespace tsgsBot_C_.Commands.Public
                 .WithColor(new Color(252, 186, 3)) // #fcba03 orange-ish
                 .WithTimestamp(DateTimeOffset.UtcNow)
                 .WithUrl("https://discord.gg/Cddu5aJ")
-                .WithAuthor(targetUser.Username, targetUser.GetAvatarUrl(size: 512), "https://discord.gg/Cddu5aJ")
+                .WithAuthor(targetUser.GlobalName, targetUser.GetAvatarUrl(size: 512), "https://discord.gg/Cddu5aJ")
                 .WithFooter(Context.Client.CurrentUser?.Username ?? "Bot", Context.Client.CurrentUser?.GetAvatarUrl(size: 512))
                 .WithThumbnailUrl(targetUser.GetAvatarUrl(size: 512) ?? targetUser.GetDefaultAvatarUrl())
                 .AddField("Username", targetUser.Username, inline: true)
