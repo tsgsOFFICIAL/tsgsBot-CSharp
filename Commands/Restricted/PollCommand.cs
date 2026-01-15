@@ -1,12 +1,13 @@
 ﻿using tsgsBot_C_.StateServices;
 using Discord.Interactions;
+using tsgsBot_C_.Services;
 using tsgsBot_C_.Models;
 using Discord.Rest;
 using Discord;
 
 namespace tsgsBot_C_.Commands.Restricted
 {
-    public sealed class PollCommand(PollFormStateService stateService) : LoggedCommandModule
+    public sealed class PollCommand(PollFormStateService stateService, PollService pollService) : LoggedCommandModule
     {
         [SlashCommand("poll", "Create a poll with a GUI")]
         [CommandContextType(InteractionContextType.Guild)]
@@ -181,6 +182,7 @@ namespace tsgsBot_C_.Commands.Restricted
 
             emojis = [.. emojis.Distinct()];
 
+            DateTime endTime = DateTime.UtcNow.AddMinutes(state.DurationMinutes);
             EmbedBuilder pollEmbed = new EmbedBuilder()
                 .WithTitle("📊 Poll")
                 .WithDescription(
@@ -198,77 +200,47 @@ namespace tsgsBot_C_.Commands.Restricted
                 await pollMessage.AddReactionAsync(emote);
             }
 
-            // Wait for duration and finalize
-            await Task.Delay(TimeSpan.FromMinutes(state.DurationMinutes));
+            int pollId = await DatabaseService.Instance.CreatePollAsync(
+                pollMessage.Id.ToString(),
+                pollMessage.Channel.Id.ToString(),
+                Context.Guild!.Id.ToString(),
+                state.ModalData!.Question,
+                [.. answers],
+                emojis,
+                endTime
+                );
 
-            // Finalize (count votes)
-            pollMessage = (RestUserMessage)await Context.Channel.GetMessageAsync(pollMessage.Id);
-
-            // Map emoji -> answer
-            var options = emojis
-                .Select((emoji, i) =>
-                {
-                    IEmote emote = Emote.TryParse(emoji, out Emote? parsed)
-                        ? parsed
-                        : new Emoji(emoji);
-
-                    pollMessage.Reactions.TryGetValue(emote, out ReactionMetadata reaction);
-
-                    int count = reaction.ReactionCount;
-                    if (count > 0)
-                        count--; // subtract bot reaction
-
-                    return new
-                    {
-                        Emote = emote,
-                        Answer = answers[i],
-                        Count = count
-                    };
-                })
-                .ToList();
-
-            // Totals + ordering
-            int totalVotes = options.Sum(o => o.Count);
-            options = options.OrderByDescending(o => o.Count).ToList();
-
-            // Build result lines
-            IEnumerable<string> resultLines = options.Select((item, index) =>
+            // Schedule finalization in background
+            _ = Task.Run(async () =>
             {
-                double pct = totalVotes > 0
-                    ? (double)item.Count / totalVotes * 100
-                    : 0;
-
-                string bar = BuildBar(pct);
-
-                string line =
-                    $"{item.Emote} **{item.Answer}**\n" +
-                    $"     ┗ {item.Count,3} votes ({pct:0.0}%) {bar}";
-
-                // Winner / tie markers
-                if (index == 0 && item.Count > 0)
+                try
                 {
-                    if (options.Count > 1 && options[1].Count == item.Count)
-                        line += " 🤝 **TIE**";
-                    else
-                        line += " 👑 **WINNER**";
-                }
+                    TimeSpan timeLeft = endTime - DateTime.UtcNow;
+                    if (timeLeft > TimeSpan.Zero)
+                        await Task.Delay(timeLeft);
 
-                return line;
+                    // Fetch fresh message for reactions
+                    if (await pollMessage.Channel.GetMessageAsync(pollMessage.Id) is IUserMessage message)
+                        await pollService.FinalizePollAsync(message, state.ModalData!.Question, [.. answers], emojis, pollId);
+                }
+                catch (Exception ex)
+                {
+                    // Log error (assuming logger is available; adjust as needed)
+                    Console.Error.WriteLine($"Error in poll finalization: {ex}");
+                }
             });
 
-            // Build final embed
-            EmbedBuilder resultEmbed = new EmbedBuilder()
-                .WithTitle("📊 Poll Ended – Final Results")
-                .WithDescription(
-                    $"**{state.ModalData!.Question}**\n\n" +
-                    string.Join("\n", resultLines) +
-                    $"\n\n**Total votes:** {totalVotes}"
-                )
-                .WithColor(totalVotes > 0 ? Color.Green : Color.DarkRed)
-                .WithCurrentTimestamp();
+            // Clean up ephemeral
+            await ModifyOriginalResponseAsync(msg =>
+            {
+                msg.Content = "Poll created successfully!";
+                msg.Embed = null;
+                msg.Components = new ComponentBuilder().Build();
+                msg.Flags = MessageFlags.Ephemeral;
+            });
 
-            await pollMessage.DeleteAsync();
-            await Context.Channel.SendMessageAsync(embed: resultEmbed.Build()); // Send results
+            // Clear state
+            stateService.Clear(Context.User.Id);
         }
 
         [ComponentInteraction("poll_cancel")]
@@ -282,13 +254,6 @@ namespace tsgsBot_C_.Commands.Restricted
                 msg.Components = new ComponentBuilder().Build(); // Clear components
                 msg.Flags = MessageFlags.Ephemeral;
             });
-        }
-
-        private static string BuildBar(double pct)
-        {
-            int filled = (int)Math.Round(pct / 8.33); // 12 segments
-            filled = Math.Clamp(filled, 0, 12);
-            return new string('▰', filled) + new string('▱', 12 - filled);
         }
     }
 }

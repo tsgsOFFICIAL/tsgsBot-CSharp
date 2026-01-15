@@ -1,6 +1,7 @@
 ﻿using tsgsBot_C_.StateServices;
 using Discord.Interactions;
 using tsgsBot_C_.Services;
+using tsgsBot_C_.Models;
 using Discord.WebSocket;
 using System.Reflection;
 using Discord.Rest;
@@ -38,6 +39,7 @@ builder.Services.AddSingleton<InteractionService>(sp =>
 builder.Services.AddSingleton<SupportFormStateService>();
 builder.Services.AddSingleton<PollFormStateService>();
 builder.Services.AddSingleton<MemberCounterService>();
+builder.Services.AddSingleton<PollService>();
 
 // A hosted service that manages lifetime of the Discord connection + command registration
 builder.Services.AddHostedService<DiscordBotHostedService>();
@@ -167,6 +169,64 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
         return Task.CompletedTask;
     }
 
+    private async Task ActivityLoopAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (await _activityTimer!.WaitForNextTickAsync(ct))
+            {
+                await SetRandomActivityAsync();
+            }
+        }
+        catch (OperationCanceledException) { /* normal shutdown */ }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Activity loop crashed");
+        }
+    }
+
+    private void StartCleanupTimer()
+    {
+        _cleanupTimer = new System.Timers.Timer(TimeSpan.FromMinutes(30).TotalMilliseconds);
+        _cleanupTimer.AutoReset = true;
+        _cleanupTimer.Elapsed += async (s, e) =>
+        {
+            try
+            {
+                int removed = supportStateService.Cleanup(TimeSpan.FromMinutes(30));
+                if (removed > 0)
+                    logger.LogInformation("Cleaned up {Count} expired support form states.", removed);
+
+                removed = pollStateService.Cleanup(TimeSpan.FromHours(30));
+                if (removed > 0)
+                    logger.LogInformation("Cleaned up {Count} expired poll form states.", removed);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Cleanup timer error");
+            }
+        };
+
+        _cleanupTimer.Start();
+        logger.LogInformation("Support form state cleanup timer started (every 30 min).");
+    }
+
+    private async Task SetRandomActivityAsync()
+    {
+        (ActivityType type, string? name) = ActivityCombos[Random.Shared.Next(ActivityCombos.Length)];
+
+        try
+        {
+            await client.SetGameAsync(name, type: type);
+
+            logger.LogInformation("🎮 Activity updated: {Type} {Name}", type, name);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to update activity to {Name}", name);
+        }
+    }
+
     private async Task OnReadyAsync()
     {
         try
@@ -190,11 +250,6 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
                 }
 
                 await interactionService.RegisterCommandsGloballyAsync(); // For production
-
-                foreach (SlashCommandInfo? command in interactionService.SlashCommands)
-                {
-                    Console.WriteLine($"Command: {command.Name}, Contexts: {string.Join(", ", command.ContextTypes ?? new List<InteractionContextType>())}");
-                }
             }
             else
             {
@@ -215,12 +270,103 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
             MemberCounterService memberCounter = serviceProvider.GetRequiredService<MemberCounterService>();
             await memberCounter.UpdateAsync();
 
+            PollService pollService = serviceProvider.GetRequiredService<PollService>();
+
             logger.LogInformation("🤖 Logged in as bot with ID {BotId}", client.CurrentUser?.Id);
             logger.LogInformation("✅ Bot is ready and commands registered!");
 
-            SharedProperties.Instance.Initialize();
+            SharedProperties.Instance.Init();
 
-            // TODO: Add poll finalization (DB) here if needed
+            // Init database and resurrect polls
+            DatabaseService.Instance.Init();
+
+            List<DatabasePollModel> activePolls = await DatabaseService.Instance.GetActivePollsAsync();
+
+            logger.LogInformation("Resurrecting {Count} active poll(s)...", activePolls.Count);
+
+            foreach (DatabasePollModel poll in activePolls)
+            {
+                try
+                {
+                    // Parse the guild ID from the poll data; if invalid, mark poll as ended and skip
+                    if (!ulong.TryParse(poll.GuildId, out ulong guildId))
+                    {
+                        await DatabaseService.Instance.UpdatePollEndedAsync(poll.Id);
+                        continue;
+                    }
+
+                    // Fetch the guild by ID; if not found (e.g., bot left the server), mark as ended and skip
+                    SocketGuild guild = client.GetGuild(guildId);
+                    if (guild == null)
+                    {
+                        await DatabaseService.Instance.UpdatePollEndedAsync(poll.Id);
+                        continue;
+                    }
+
+                    // Parse the channel ID; if invalid, mark as ended and skip
+                    if (!ulong.TryParse(poll.ChannelId, out ulong channelId))
+                    {
+                        await DatabaseService.Instance.UpdatePollEndedAsync(poll.Id);
+                        continue;
+                    }
+
+                    // Fetch the text channel; if not found or inaccessible, mark as ended and skip
+                    SocketTextChannel channel = guild.GetTextChannel(channelId);
+                    if (channel == null)
+                    {
+                        await DatabaseService.Instance.UpdatePollEndedAsync(poll.Id);
+                        continue;
+                    }
+
+                    // Parse the message ID; if invalid, mark as ended and skip
+                    if (!ulong.TryParse(poll.MessageId, out ulong messageId))
+                    {
+                        await DatabaseService.Instance.UpdatePollEndedAsync(poll.Id);
+                        continue;
+                    }
+
+                    // Fetch the message and ensure it's a user message; if not found or deleted, mark as ended and skip
+                    if (await channel.GetMessageAsync(messageId) is not IUserMessage message)
+                    {
+                        await DatabaseService.Instance.UpdatePollEndedAsync(poll.Id);
+                        continue;
+                    }
+
+                    // Calculate remaining time using UTC for consistency
+                    TimeSpan timeLeft = poll.EndTime - DateTime.UtcNow;
+                    if (timeLeft <= TimeSpan.Zero)
+                    {
+                        // Poll has already expired; finalize immediately
+                        await pollService.FinalizePollAsync(message, poll.Question, poll.Answers, poll.Emojis, poll.Id);
+                    }
+                    else
+                    {
+                        // Schedule finalization after the remaining time; run in background task with cancellation support
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await Task.Delay(timeLeft, _cts!.Token);
+                                await pollService.FinalizePollAsync(message, poll.Question, poll.Answers, poll.Emojis, poll.Id);
+                            }
+                            catch (TaskCanceledException)
+                            {
+                                // Normal during bot shutdown; no action needed
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, "Error in delayed poll finalization for poll {PollId}", poll.Id);
+                            }
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Catch-all for unexpected errors during resurrection; log and mark as ended
+                    logger.LogError(ex, "Error resurrecting poll {PollId}", poll.Id);
+                    await DatabaseService.Instance.UpdatePollEndedAsync(poll.Id);
+                }
+            }
 
             StartCleanupTimer();
         }
@@ -282,64 +428,6 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
         {
             logger.LogError(ex, "Error handling guild member removed for user {UserId}", user?.Id);
         }
-    }
-
-    private async Task ActivityLoopAsync(CancellationToken ct)
-    {
-        try
-        {
-            while (await _activityTimer!.WaitForNextTickAsync(ct))
-            {
-                await SetRandomActivityAsync();
-            }
-        }
-        catch (OperationCanceledException) { /* normal shutdown */ }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Activity loop crashed");
-        }
-    }
-
-    private async Task SetRandomActivityAsync()
-    {
-        (ActivityType type, string? name) = ActivityCombos[Random.Shared.Next(ActivityCombos.Length)];
-
-        try
-        {
-            await client.SetGameAsync(name, type: type);
-
-            logger.LogInformation("🎮 Activity updated: {Type} {Name}", type, name);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to update activity to {Name}", name);
-        }
-    }
-
-    private void StartCleanupTimer()
-    {
-        _cleanupTimer = new System.Timers.Timer(TimeSpan.FromMinutes(30).TotalMilliseconds);
-        _cleanupTimer.AutoReset = true;
-        _cleanupTimer.Elapsed += async (s, e) =>
-        {
-            try
-            {
-                int removed = supportStateService.Cleanup(TimeSpan.FromMinutes(30));
-                if (removed > 0)
-                    logger.LogInformation("Cleaned up {Count} expired support form states.", removed);
-
-                removed = pollStateService.Cleanup(TimeSpan.FromHours(30));
-                if (removed > 0)
-                    logger.LogInformation("Cleaned up {Count} expired poll form states.", removed);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Cleanup timer error");
-            }
-        };
-
-        _cleanupTimer.Start();
-        logger.LogInformation("Support form state cleanup timer started (every 30 min).");
     }
 
     private async Task HandleInteractionAsync(SocketInteraction interaction)

@@ -1,23 +1,186 @@
-﻿using Npgsql;
+﻿using tsgsBot_C_.Models;
+using System.Text.Json;
+using Discord;
+using Npgsql;
 
 namespace tsgsBot_C_.Services
 {
     public sealed class DatabaseService
     {
         private static readonly Lazy<DatabaseService> _instance = new(() => new DatabaseService());
+
         /// <summary>
         /// Gets the singleton instance of the database service.
         /// </summary>
         /// <remarks>This property provides global access to the shared database service instance. The
         /// instance is lazily initialized and is guaranteed to be thread-safe.</remarks>
         public static DatabaseService Instance => _instance.Value;
-        
+
         private readonly DatabaseHelper _dbHelper;
 
         private DatabaseService()
         {
             _dbHelper = new DatabaseHelper();
+
+            const string createPollsTableQuery = @"
+                CREATE TABLE IF NOT EXISTS active_polls (
+                    id SERIAL PRIMARY KEY,
+                    message_id TEXT UNIQUE NOT NULL,
+                    channel_id TEXT NOT NULL,
+                    guild_id TEXT NOT NULL,
+                    question TEXT NOT NULL,
+                    answers JSONB NOT NULL,
+                    emojis JSONB NOT NULL,
+                    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+                    has_ended BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_active_polls_active 
+                    ON active_polls (has_ended, end_time) 
+                    WHERE has_ended = FALSE;
+            ";
+
+            _dbHelper.ExecuteNonQueryAsync(createPollsTableQuery).GetAwaiter().GetResult();
         }
+
+        /// <summary>
+        /// Performs initialization for the current instance. This method can be called to prepare the object for use.
+        /// </summary>
+        public void Init()
+        {
+            // Intentionally left blank
+        }
+
+        #region Polls
+        /// <summary>
+        /// Creates a new poll entry in the database.
+        /// </summary>
+        /// <param name="messageId">The Discord message ID.</param>
+        /// <param name="channelId">The Discord channel ID.</param>
+        /// <param name="guildId">The Discord guild ID.</param>
+        /// <param name="question">The poll question.</param>
+        /// <param name="answers">List of answer options.</param>
+        /// <param name="emojis">List of emojis corresponding to answers.</param>
+        /// <param name="endTime">The poll end time (in UTC).</param>
+        /// <returns>The ID of the newly created poll.</returns>
+        public async Task<int> CreatePollAsync(string messageId, string channelId, string guildId, string question, List<string> answers, List<string> emojis, DateTime endTime)
+        {
+            string answersJson = JsonSerializer.Serialize(answers);
+            string emojisJson = JsonSerializer.Serialize(emojis);
+
+            const string query = @"
+                INSERT INTO active_polls (message_id, channel_id, guild_id, question, answers, emojis, end_time)
+                VALUES (@messageId, @channelId, @guildId, @question, @answers, @emojis, @endTime)
+                RETURNING id;";
+
+            NpgsqlParameter[] parameters = new NpgsqlParameter[]
+            {
+                new("@messageId", messageId),
+                new("@channelId", channelId),
+                new("@guildId", guildId),
+                new("@question", question),
+                new("@answers", answersJson),
+                new("@emojis", emojisJson),
+                new("@endTime", endTime)
+            };
+
+            object? result = await _dbHelper.ExecuteScalarAsync(query, parameters);
+            return result is int id ? id : throw new InvalidOperationException("Failed to retrieve poll ID.");
+        }
+        /// <summary>
+        /// Retrieves a single poll by its ID.
+        /// </summary>
+        /// <param name="id">The poll ID.</param>
+        /// <returns>The poll if found; otherwise, null.</returns>
+        public async Task<DatabasePollModel?> GetPollAsync(int id)
+        {
+            const string query = "SELECT * FROM active_polls WHERE id = @id;";
+
+            NpgsqlParameter[] parameters = new NpgsqlParameter[] {
+                new("@id", id)
+            };
+
+            using NpgsqlDataReader reader = await _dbHelper.ExecuteReaderAsync(query, parameters);
+            if (await reader.ReadAsync())
+            {
+                return new DatabasePollModel(
+                    reader.GetInt32(reader.GetOrdinal("id")),
+                    reader.GetString(reader.GetOrdinal("message_id")),
+                    reader.GetString(reader.GetOrdinal("channel_id")),
+                    reader.GetString(reader.GetOrdinal("guild_id")),
+                    reader.GetString(reader.GetOrdinal("question")),
+                    JsonSerializer.Deserialize<List<string>>(reader.GetString(reader.GetOrdinal("answers"))) ?? new List<string>(),
+                    JsonSerializer.Deserialize<List<string>>(reader.GetString(reader.GetOrdinal("emojis"))) ?? new List<string>(),
+                    reader.GetDateTime(reader.GetOrdinal("end_time")),
+                    reader.GetBoolean(reader.GetOrdinal("has_ended")),
+                    reader.GetDateTime(reader.GetOrdinal("created_at"))
+                );
+            }
+
+            return null;
+        }
+        /// <summary>
+        /// Retrieves all active (non-ended) polls.
+        /// </summary>
+        /// <returns>A list of active polls.</returns>
+        public async Task<List<DatabasePollModel>> GetActivePollsAsync()
+        {
+            const string query = "SELECT * FROM active_polls WHERE has_ended = FALSE;";
+
+            List<DatabasePollModel> polls = new List<DatabasePollModel>();
+
+            using NpgsqlDataReader reader = await _dbHelper.ExecuteReaderAsync(query);
+            while (await reader.ReadAsync())
+            {
+                polls.Add(new DatabasePollModel(
+                    reader.GetInt32(reader.GetOrdinal("id")),
+                    reader.GetString(reader.GetOrdinal("message_id")),
+                    reader.GetString(reader.GetOrdinal("channel_id")),
+                    reader.GetString(reader.GetOrdinal("guild_id")),
+                    reader.GetString(reader.GetOrdinal("question")),
+                    JsonSerializer.Deserialize<List<string>>(reader.GetString(reader.GetOrdinal("answers"))) ?? new List<string>(),
+                    JsonSerializer.Deserialize<List<string>>(reader.GetString(reader.GetOrdinal("emojis"))) ?? new List<string>(),
+                    reader.GetDateTime(reader.GetOrdinal("end_time")),
+                    reader.GetBoolean(reader.GetOrdinal("has_ended")),
+                    reader.GetDateTime(reader.GetOrdinal("created_at"))
+                ));
+            }
+
+            return polls;
+        }
+        /// <summary>
+        /// Updates the 'has_ended' status of a poll.
+        /// </summary>
+        /// <param name="id">The poll ID.</param>
+        /// <param name="hasEnded">The new ended status (default: true).</param>
+        public async Task UpdatePollEndedAsync(int id, bool hasEnded = true)
+        {
+            const string query = "UPDATE active_polls SET has_ended = @hasEnded WHERE id = @id;";
+
+            NpgsqlParameter[] parameters = new NpgsqlParameter[]
+            {
+                new("@id", id),
+                new("@hasEnded", hasEnded)
+            };
+
+            await _dbHelper.ExecuteNonQueryAsync(query, parameters);
+        }
+        /// <summary>
+        /// Deletes a poll by its ID.
+        /// </summary>
+        /// <param name="id">The poll ID.</param>
+        public async Task DeletePollAsync(int id)
+        {
+            const string query = "DELETE FROM active_polls WHERE id = @id;";
+
+            NpgsqlParameter[] parameters = new NpgsqlParameter[] {
+                new("@id", id)
+            };
+
+            await _dbHelper.ExecuteNonQueryAsync(query, parameters);
+        }
+        #endregion
     }
 
     /// <summary>
