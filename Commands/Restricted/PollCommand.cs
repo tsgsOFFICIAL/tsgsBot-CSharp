@@ -230,15 +230,6 @@ namespace tsgsBot_C_.Commands.Restricted
                 }
             });
 
-            // Clean up ephemeral
-            await ModifyOriginalResponseAsync(msg =>
-            {
-                msg.Content = "Poll created successfully!";
-                msg.Embed = null;
-                msg.Components = new ComponentBuilder().Build();
-                msg.Flags = MessageFlags.Ephemeral;
-            });
-
             // Clear state
             stateService.Clear(Context.User.Id);
         }

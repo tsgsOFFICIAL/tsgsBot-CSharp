@@ -40,9 +40,9 @@ namespace tsgsBot_C_.Services
 
                 // Optional: double-check it wasn't already ended
                 DatabasePollModel? poll = await DatabaseService.Instance.GetPollAsync(pollId);
-                if (poll == null || poll.HasEnded)
+                if (poll == null)
                 {
-                    logger.LogInformation("Poll {PollId} already finalized or not found", pollId);
+                    logger.LogInformation("Poll {PollId} not found", pollId);
                     return;
                 }
 

@@ -1,7 +1,8 @@
-﻿using tsgsBot_C_.Models;
-using System.Text.Json;
-using Discord;
+﻿using Discord;
 using Npgsql;
+using NpgsqlTypes;
+using System.Text.Json;
+using tsgsBot_C_.Models;
 
 namespace tsgsBot_C_.Services
 {
@@ -31,9 +32,9 @@ namespace tsgsBot_C_.Services
                     question TEXT NOT NULL,
                     answers JSONB NOT NULL,
                     emojis JSONB NOT NULL,
-                    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+                    end_time TIMESTAMP NOT NULL,
                     has_ended BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT NOW()
+                    created_at TIMESTAMP DEFAULT (TIMEZONE('UTC', NOW()))
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_active_polls_active 
@@ -80,9 +81,15 @@ namespace tsgsBot_C_.Services
                 new("@channelId", channelId),
                 new("@guildId", guildId),
                 new("@question", question),
-                new("@answers", answersJson),
-                new("@emojis", emojisJson),
-                new("@endTime", endTime)
+                new("@answers", NpgsqlDbType.Jsonb)
+                {
+                    Value = answersJson
+                },
+                new("@emojis", NpgsqlDbType.Jsonb)
+                {
+                    Value = emojisJson
+                },
+                new("@endTime", DateTime.SpecifyKind(endTime, DateTimeKind.Unspecified))
             };
 
             object? result = await _dbHelper.ExecuteScalarAsync(query, parameters);
