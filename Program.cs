@@ -342,6 +342,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
 
                     // Calculate remaining time using UTC for consistency
                     TimeSpan timeLeft = poll.EndTime - DateTime.UtcNow;
+                    logger.LogInformation("Resurrected poll {PollId} with {TimeLeft} remaining.", poll.Id, timeLeft);
                     if (timeLeft <= TimeSpan.Zero)
                     {
                         // Poll has already expired; finalize immediately
@@ -428,6 +429,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
 
                     // Calculate remaining time using UTC for consistency
                     TimeSpan timeLeft = giveaway.EndTime - DateTime.UtcNow;
+                    logger.LogInformation("Resurrected giveaway {GiveawayId} with {TimeLeft} remaining.", giveaway.Id, timeLeft);
                     if (timeLeft <= TimeSpan.Zero)
                     {
                         // Giveaway has already expired; finalize immediately
