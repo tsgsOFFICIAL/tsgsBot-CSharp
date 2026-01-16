@@ -92,7 +92,7 @@ namespace tsgsBot_C_.Services
                 new("@endTime", DateTime.SpecifyKind(endTime, DateTimeKind.Unspecified)),
                 new("@createdByUserId", NpgsqlDbType.Numeric)
                 {
-                    Value = createdByUserId
+                    Value = (decimal)createdByUserId
                 }
             };
 
