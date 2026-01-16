@@ -10,7 +10,7 @@ namespace tsgsBot_C_.Commands.Restricted
 {
     public sealed class PollCommand(PollFormStateService stateService, PollService pollService, ILogger<PollCommand> logger) : LoggedCommandModule
     {
-        [SlashCommand("poll", "Create a poll with a GUI")]
+        [SlashCommand("poll", "Start a poll where users can participate by reacting")]
         [CommandContextType(InteractionContextType.Guild)]
         [DefaultMemberPermissions(GuildPermission.SendPolls)]
         public async Task PollAsync()
@@ -131,7 +131,6 @@ namespace tsgsBot_C_.Commands.Restricted
             // Preview embed
             EmbedBuilder previewEmbed = new EmbedBuilder()
                 .WithTitle("📊 Poll (Preview)")
-                // Use the correct parameters for WithAuthor
                 .WithAuthor(displayName, avatarUrl, "https://discord.gg/Cddu5aJ")
                 .WithDescription(
                     $"{question}\n\n" +

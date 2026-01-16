@@ -49,7 +49,7 @@ namespace tsgsBot_C_.Services
                 // Populate reaction users (helps with accurate counts)
                 foreach (KeyValuePair<IEmote, ReactionMetadata> reaction in message.Reactions)
                 {
-                    await message.GetReactionUsersAsync(reaction.Key, 1000).FlattenAsync();
+                    await message.GetReactionUsersAsync(reaction.Key, int.MaxValue).FlattenAsync();
                 }
 
                 // Count votes per option

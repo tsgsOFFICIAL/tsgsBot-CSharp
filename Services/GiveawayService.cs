@@ -4,98 +4,82 @@ using Discord;
 
 namespace tsgsBot_C_.Services
 {
-    public sealed class GiveawayService(ILogger<PollService> logger)
+    public sealed class GiveawayService(ILogger<GiveawayService> logger)
     {
-        public async Task FinalizeGiveawayAsync(IUserMessage message, string question, List<string> answers, List<string> emojis, int pollId, ulong createdByUserId)
+        public async Task FinalizeGiveawayAsync(IUserMessage message, string prize, string reactionEmoji, string winners, int giveawayId, ulong createdByUserId)
         {
             try
             {
+                int winnerCount = int.Parse(winners);
+
                 // Mark as ended in DB (idempotent)
-                await DatabaseService.Instance.UpdatePollEndedAsync(pollId);
+                await DatabaseService.Instance.UpdateGiveawayEndedAsync(giveawayId);
 
                 // Optional: double-check it wasn't already ended
-                DatabasePollModel? poll = await DatabaseService.Instance.GetPollAsync(pollId);
-                if (poll == null)
+                DatabaseGiveawayModel? giveaway = await DatabaseService.Instance.GetGiveawayAsync(giveawayId);
+                if (giveaway == null)
                 {
-                    logger.LogInformation("Poll {PollId} not found", pollId);
+                    logger.LogInformation("Giveaway {GiveawayId} not found", giveawayId);
                     return;
                 }
 
                 // Populate reaction users (helps with accurate counts)
                 foreach (KeyValuePair<IEmote, ReactionMetadata> reaction in message.Reactions)
                 {
-                    await message.GetReactionUsersAsync(reaction.Key, 1000).FlattenAsync();
+                    await message.GetReactionUsersAsync(reaction.Key, int.MaxValue).FlattenAsync();
                 }
 
-                // Count votes per option
-                List<(string Emoji, string Answer, int Count)> voteCounts = new List<(string Emoji, string Answer, int Count)>();
+                // Get a list of users who reacted with the giveaway emoji
+                List<IUser> reactedUsers = new List<IUser>();
 
-                for (int i = 0; i < emojis.Count; i++)
+                IEmote giveawayEmote = Emote.TryParse(reactionEmoji, out Emote? parsed) ? parsed : new Emoji(reactionEmoji);
+
+                if (message.Reactions.TryGetValue(giveawayEmote, out ReactionMetadata reactionMetadata))
                 {
-                    string emojiStr = emojis[i];
-                    IEmote emote = Emote.TryParse(emojiStr, out Emote? parsed) ? parsed : new Emoji(emojiStr);
+                    IAsyncEnumerable<IReadOnlyCollection<IUser>> reactionUsers = message.GetReactionUsersAsync(giveawayEmote, int.MaxValue);
 
-                    if (message.Reactions.TryGetValue(emote, out ReactionMetadata reaction))
+                    await foreach (IReadOnlyCollection<IUser> users in reactionUsers)
                     {
-                        int count = reaction.ReactionCount;
-                        if (count > 0) count--; // subtract bot's own reaction
-                        voteCounts.Add((emojiStr, answers[i], count));
-                    }
-                    else
-                    {
-                        voteCounts.Add((emojiStr, answers[i], 0));
+                        reactedUsers.AddRange(users);
                     }
                 }
 
-                int totalVotes = voteCounts.Sum(x => x.Count);
-                List<(string Emoji, string Answer, int Count)> sorted = voteCounts.OrderByDescending(x => x.Count).ToList();
+                List<ulong> participants = [.. reactedUsers
+                        .Where(u => !u.IsBot)
+                        .Select(u => u.Id)];
 
-                // Build result lines
-                List<string> lines = new List<string>();
-                for (int idx = 0; idx < sorted.Count; idx++)
-                {
-                    (string Emoji, string Answer, int Count) item = sorted[idx];
-                    double pct = totalVotes > 0 ? (item.Count / (double)totalVotes) * 100 : 0;
-                    string bar = new string('▰', (int)Math.Round(pct / 8.33)) +
-                                 new string('▱', 12 - (int)Math.Round(pct / 8.33));
+                // Pick winners (random shuffle)
+                Random random = new Random();
+                participants = [.. participants.OrderBy(x => random.Next())];
+                List<ulong> winnersList = [.. participants.Take(Math.Min(winnerCount, participants.Count))];
 
-                    string line = $"{item.Emoji} **{item.Answer}**\n" +
-                                  $"     ┗ {item.Count,3} votes ({pct:0.0}%) {bar}";
-
-                    if (idx == 0 && item.Count > 0)
-                    {
-                        if (sorted.Count > 1 && sorted[1].Count == item.Count)
-                            line += " ← TIE 🤝";
-                        else
-                            line += " ← WINNER 👑";
-                    }
-
-                    lines.Add(line);
-                }
+                string winnerMentions = string.Join(", ", winnersList.Select(id => $"<@{id}>"));
 
                 // Get the display name and avatar URL safely
                 IUser createdByUser = await message.Channel.GetUserAsync(createdByUserId);
                 string displayName = (createdByUser as SocketGuildUser)?.Nickname ?? "Unknown";
                 string avatarUrl = createdByUser.GetAvatarUrl(size: 512);
 
-                // Results embed
-                Embed embed = new EmbedBuilder()
-                    .WithTitle("Poll Ended – Final Results")
+                Embed resultEmbed = new EmbedBuilder()
+                    .WithTitle("🎉 Giveaway Ended!")
                     .WithAuthor(displayName, avatarUrl)
-                    .WithDescription($"**{question}**\n\n{string.Join("\n", lines)}\n\n**Total votes:** {totalVotes}")
-                    .WithColor(totalVotes > 0 ? new Color(0x00FF00) : new Color(0x992D22))
-                    .WithCurrentTimestamp()
+                    .WithDescription(
+                        $"**Prize:** {prize}\n\n" +
+                        $"🏆 **Winner{(winnerCount > 1 ? "s" : "")}:** {winnerMentions ?? "No winners"}\n\n" +
+                        $"📋 **Entr{(participants.Count > 1 ? "ies" : "y")}:** {participants.Count}")
+                    .WithColor(Color.Green)
+                    .WithTimestamp(DateTimeOffset.UtcNow)
                     .Build();
 
-                // Clean up original poll message and post results
+                // Clean up original giveaway message and post results
                 await message.DeleteAsync();
-                await message.Channel.SendMessageAsync(embed: embed);
+                await message.Channel.SendMessageAsync(embed: resultEmbed);
 
-                logger.LogInformation("Successfully finalized poll {PollId}", pollId);
+                logger.LogInformation("Successfully finalized giveaway {GiveawayId}", giveawayId);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to finalize poll {PollId}", pollId);
+                logger.LogError(ex, "Failed to finalize giveaway {GiveawayId}", giveawayId);
             }
         }
     }

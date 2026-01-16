@@ -38,8 +38,10 @@ builder.Services.AddSingleton<InteractionService>(sp =>
 
 builder.Services.AddSingleton<SupportFormStateService>();
 builder.Services.AddSingleton<PollFormStateService>();
-builder.Services.AddSingleton<MemberCounterService>();
 builder.Services.AddSingleton<PollService>();
+builder.Services.AddSingleton<GiveawayFormStateService>();
+builder.Services.AddSingleton<GiveawayService>();
+builder.Services.AddSingleton<MemberCounterService>();
 
 // A hosted service that manages lifetime of the Discord connection + command registration
 builder.Services.AddHostedService<DiscordBotHostedService>();
@@ -68,7 +70,7 @@ await app.RunAsync();
 // ─────────────────────────────────────────────────────────────────────────────
 //                          Hosted Service – the real bot logic
 // ─────────────────────────────────────────────────────────────────────────────
-internal sealed class DiscordBotHostedService(DiscordSocketClient client, InteractionService interactionService, IServiceProvider serviceProvider, SupportFormStateService supportStateService, PollFormStateService pollStateService, ILogger<DiscordBotHostedService> logger) : BackgroundService
+internal sealed class DiscordBotHostedService(DiscordSocketClient client, InteractionService interactionService, IServiceProvider serviceProvider, SupportFormStateService supportStateService, PollFormStateService pollStateService, GiveawayFormStateService giveawayStateService, ILogger<DiscordBotHostedService> logger) : BackgroundService
 {
     private static readonly (ActivityType Type, string Name)[] ActivityCombos =
     [
@@ -197,9 +199,13 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
                 if (removed > 0)
                     logger.LogInformation("Cleaned up {Count} expired support form states.", removed);
 
-                removed = pollStateService.Cleanup(TimeSpan.FromHours(30));
+                removed = pollStateService.Cleanup(TimeSpan.FromMinutes(30));
                 if (removed > 0)
                     logger.LogInformation("Cleaned up {Count} expired poll form states.", removed);
+
+                removed = giveawayStateService.Cleanup(TimeSpan.FromMinutes(30));
+                if (removed > 0)
+                    logger.LogInformation("Cleaned up {Count} expired giveaway form states.", removed);
             }
             catch (Exception ex)
             {
@@ -219,7 +225,7 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
         {
             await client.SetGameAsync(name, type: type);
 
-            logger.LogInformation("🎮 Activity updated: {Type} {Name}", type, name);
+            logger.LogInformation("🎮  Activity updated: {Type} {Name}", type, name);
         }
         catch (Exception ex)
         {
@@ -271,16 +277,18 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
             await memberCounter.UpdateAsync();
 
             PollService pollService = serviceProvider.GetRequiredService<PollService>();
+            GiveawayService giveawayService = serviceProvider.GetRequiredService<GiveawayService>();
 
             logger.LogInformation("🤖 Logged in as bot with ID {BotId}", client.CurrentUser?.Id);
             logger.LogInformation("✅ Bot is ready and commands registered!");
 
             SharedProperties.Instance.Init();
 
-            // Init database and resurrect polls
+            // Init database and resurrect polls, giveaways etc.
             DatabaseService.Instance.Init();
 
             List<DatabasePollModel> activePolls = await DatabaseService.Instance.GetActivePollsAsync();
+            List<DatabaseGiveawayModel> activeGiveaways = await DatabaseService.Instance.GetActiveGiveawaysAsync();
 
             logger.LogInformation("Resurrecting {Count} active poll(s)...", activePolls.Count);
 
@@ -365,6 +373,92 @@ internal sealed class DiscordBotHostedService(DiscordSocketClient client, Intera
                     // Catch-all for unexpected errors during resurrection; log and mark as ended
                     logger.LogError(ex, "Error resurrecting poll {PollId}", poll.Id);
                     await DatabaseService.Instance.UpdatePollEndedAsync(poll.Id);
+                }
+            }
+
+            logger.LogInformation("Resurrecting {Count} active giveaway(s)...", activeGiveaways.Count);
+
+            foreach (DatabaseGiveawayModel giveaway in activeGiveaways)
+            {
+                try
+                {
+                    // Parse the guild ID from the giveaway data; if invalid, mark giveaway as ended and skip
+                    if (!ulong.TryParse(giveaway.GuildId, out ulong guildId))
+                    {
+                        await DatabaseService.Instance.UpdateGiveawayEndedAsync(giveaway.Id);
+                        continue;
+                    }
+
+                    // Fetch the guild by ID; if not found (e.g., bot left the server), mark as ended and skip
+                    SocketGuild guild = client.GetGuild(guildId);
+                    if (guild == null)
+                    {
+                        await DatabaseService.Instance.UpdateGiveawayEndedAsync(giveaway.Id);
+                        continue;
+                    }
+
+                    // Parse the channel ID; if invalid, mark as ended and skip
+                    if (!ulong.TryParse(giveaway.ChannelId, out ulong channelId))
+                    {
+                        await DatabaseService.Instance.UpdateGiveawayEndedAsync(giveaway.Id);
+                        continue;
+                    }
+
+                    // Fetch the text channel; if not found or inaccessible, mark as ended and skip
+                    SocketTextChannel channel = guild.GetTextChannel(channelId);
+                    if (channel == null)
+                    {
+                        await DatabaseService.Instance.UpdateGiveawayEndedAsync(giveaway.Id);
+                        continue;
+                    }
+
+                    // Parse the message ID; if invalid, mark as ended and skip
+                    if (!ulong.TryParse(giveaway.MessageId, out ulong messageId))
+                    {
+                        await DatabaseService.Instance.UpdateGiveawayEndedAsync(giveaway.Id);
+                        continue;
+                    }
+
+                    // Fetch the message and ensure it's a user message; if not found or deleted, mark as ended and skip
+                    if (await channel.GetMessageAsync(messageId) is not IUserMessage message)
+                    {
+                        await DatabaseService.Instance.UpdateGiveawayEndedAsync(giveaway.Id);
+                        continue;
+                    }
+
+                    // Calculate remaining time using UTC for consistency
+                    TimeSpan timeLeft = giveaway.EndTime - DateTime.UtcNow;
+                    if (timeLeft <= TimeSpan.Zero)
+                    {
+                        // Giveaway has already expired; finalize immediately
+                        await giveawayService.FinalizeGiveawayAsync(message, giveaway.Prize, giveaway.ReactionEmoji, giveaway.Winners.ToString(), giveaway.Id, giveaway.CreatedByUserId);
+                    }
+                    else
+                    {
+                        // Schedule finalization after the remaining time; run in background task with cancellation support
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await Task.Delay(timeLeft, _cts!.Token);
+                                await giveawayService.FinalizeGiveawayAsync(message, giveaway.Prize, giveaway.ReactionEmoji, giveaway.Winners.ToString(), giveaway.Id, giveaway.CreatedByUserId);
+                            }
+                            catch (TaskCanceledException)
+                            {
+                                // Normal during bot shutdown; no action needed
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError(ex, "Error in delayed poll finalization for poll {GiveawayId}", giveaway.Id);
+                            }
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Catch-all for unexpected errors during resurrection; log and mark as ended
+                    logger.LogError(ex, "Error resurrecting Giveaway {GiveawayId}", giveaway.Id);
+                    await DatabaseService.Instance.UpdateGiveawayEndedAsync(giveaway.Id);
                 }
             }
 

@@ -1,7 +1,8 @@
-﻿using tsgsBot_C_.Models;
-using System.Text.Json;
-using NpgsqlTypes;
+﻿using Discord;
 using Npgsql;
+using NpgsqlTypes;
+using System.Text.Json;
+using tsgsBot_C_.Models;
 
 namespace tsgsBot_C_.Services
 {
@@ -42,7 +43,29 @@ namespace tsgsBot_C_.Services
                     WHERE has_ended = FALSE;
             ";
 
+            const string createGiveawaysTableQuery = @"
+                CREATE TABLE IF NOT EXISTS giveaways (
+                    id SERIAL PRIMARY KEY,
+                    message_id TEXT UNIQUE NOT NULL,
+                    channel_id TEXT NOT NULL,
+                    guild_id TEXT NOT NULL,
+                    prize TEXT NOT NULL,
+                    winners INT NOT NULL DEFAULT 1,
+                    winner NUMERIC,
+                    reaction_emoji TEXT NOT NULL DEFAULT '🎟️',
+                    end_time TIMESTAMP NOT NULL,
+                    has_ended BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT (TIMEZONE('UTC', NOW())),
+                    created_by NUMERIC NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_giveaways_active
+                    ON giveaways (has_ended, end_time)
+                    WHERE has_ended = FALSE;
+            ";
+
             _dbHelper.ExecuteNonQueryAsync(createPollsTableQuery).GetAwaiter().GetResult();
+            _dbHelper.ExecuteNonQueryAsync(createGiveawaysTableQuery).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -53,7 +76,7 @@ namespace tsgsBot_C_.Services
             // Intentionally left blank
         }
 
-        #region Polls
+        #region TABLE [Polls]
         /// <summary>
         /// Creates a new poll entry in the database.
         /// </summary>
@@ -194,7 +217,153 @@ namespace tsgsBot_C_.Services
             await _dbHelper.ExecuteNonQueryAsync(query, parameters);
         }
         #endregion
-        #region Giveaways
+
+        #region TABLE [Giveaways]
+        /// <summary>
+        /// Creates a new giveaway entry with the specified details and returns the unique identifier of the created
+        /// giveaway.
+        /// </summary>
+        /// <param name="messageId">The unique identifier of the message associated with the giveaway.</param>
+        /// <param name="channelId">The unique identifier of the channel where the giveaway is hosted.</param>
+        /// <param name="guildId">The unique identifier of the guild (server) in which the giveaway is created.</param>
+        /// <param name="prize">The description of the prize to be awarded to the giveaway winner(s).</param>
+        /// <param name="reactionEmoji">The emoji that participants must react with to enter the giveaway.</param>
+        /// <param name="endTime">The date and time when the giveaway ends. The time should be specified in UTC.</param>
+        /// <param name="createdByUserId">The unique identifier of the user who created the giveaway.</param>
+        /// <param name="winners">The number of winners to select for the giveaway. Must be at least 1. Defaults to 1 if not specified.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains the unique identifier of the
+        /// newly created giveaway.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the giveaway could not be created or the giveaway ID could not be retrieved from the database.</exception>
+        public async Task<int> CreateGiveawayAsync(string messageId, string channelId, string guildId, string prize, string reactionEmoji, DateTime endTime, ulong createdByUserId, int winners = 1)
+        {
+            const string query = @"
+                INSERT INTO giveaways (message_id, channel_id, guild_id, prize, reaction_emoji, winners, end_time, created_by)
+                VALUES (@messageId, @channelId, @guildId, @prize, @reaction_emoji, @winners, @endTime, @createdByUserId)
+                RETURNING id;";
+
+            NpgsqlParameter[] parameters = new NpgsqlParameter[]
+            {
+                new("@messageId", messageId),
+                new("@channelId", channelId),
+                new("@guildId", guildId),
+                new("@prize", prize),
+                new("@reaction_emoji", reactionEmoji),
+                new("@winners", winners),
+                new("@endTime", DateTime.SpecifyKind(endTime, DateTimeKind.Unspecified)),
+                new("@createdByUserId", NpgsqlDbType.Numeric)
+                {
+                    Value = (decimal)createdByUserId
+                }
+            };
+
+            object? result = await _dbHelper.ExecuteScalarAsync(query, parameters);
+            return result is int id ? id : throw new InvalidOperationException("Failed to retrieve giveaway ID.");
+        }
+        /// <summary>
+        /// Asynchronously retrieves a giveaway record from the database by its unique identifier.
+        /// </summary>
+        /// <param name="id">The unique identifier of the giveaway to retrieve.</param>
+        /// <returns>A <see cref="DatabaseGiveawayModel"/> representing the giveaway if found; otherwise, <see langword="null"/>.</returns>
+        public async Task<DatabaseGiveawayModel?> GetGiveawayAsync(int id)
+        {
+            const string query = "SELECT * FROM giveaways WHERE id = @id;";
+            NpgsqlParameter[] parameters = new NpgsqlParameter[] {
+                new("@id", id)
+            };
+
+            using NpgsqlDataReader reader = await _dbHelper.ExecuteReaderAsync(query, parameters);
+
+            if (await reader.ReadAsync())
+            {
+                return new DatabaseGiveawayModel(
+                    reader.GetInt32(reader.GetOrdinal("id")),
+                    reader.GetString(reader.GetOrdinal("message_id")),
+                    reader.GetString(reader.GetOrdinal("channel_id")),
+                    reader.GetString(reader.GetOrdinal("guild_id")),
+                    reader.GetString(reader.GetOrdinal("prize")),
+                    reader.GetInt32(reader.GetOrdinal("winners")),
+                    reader.IsDBNull(reader.GetOrdinal("winner")) ? null : Convert.ToUInt64(reader.GetValue(reader.GetOrdinal("winner"))),
+                    reader.GetString(reader.GetOrdinal("reaction_emoji")),
+                    reader.GetDateTime(reader.GetOrdinal("end_time")),
+                    reader.GetBoolean(reader.GetOrdinal("has_ended")),
+                    reader.GetDateTime(reader.GetOrdinal("created_at")),
+                    Convert.ToUInt64(reader.GetValue(reader.GetOrdinal("created_by")))
+                );
+            }
+
+            return null;
+        }
+        /// <summary>
+        /// Asynchronously retrieves all active giveaways from the database.
+        /// </summary>
+        /// <remarks>This method queries the database for giveaways where the end condition has not been
+        /// met. The operation is performed asynchronously and may involve network or I/O latency depending on the
+        /// database connection.</remarks>
+        /// <returns>A list of <see cref="DatabaseGiveawayModel"/> objects representing giveaways that have not ended. The list
+        /// is empty if there are no active giveaways.</returns>
+        public async Task<List<DatabaseGiveawayModel>> GetActiveGiveawaysAsync()
+        {
+            const string query = "SELECT * FROM giveaways WHERE has_ended = FALSE;";
+            List<DatabaseGiveawayModel> giveaways = new List<DatabaseGiveawayModel>();
+
+            using NpgsqlDataReader reader = await _dbHelper.ExecuteReaderAsync(query);
+
+            while (await reader.ReadAsync())
+            {
+                giveaways.Add(new DatabaseGiveawayModel(
+                    reader.GetInt32(reader.GetOrdinal("id")),
+                    reader.GetString(reader.GetOrdinal("message_id")),
+                    reader.GetString(reader.GetOrdinal("channel_id")),
+                    reader.GetString(reader.GetOrdinal("guild_id")),
+                    reader.GetString(reader.GetOrdinal("prize")),
+                    reader.GetInt32(reader.GetOrdinal("winners")),
+                    reader.IsDBNull(reader.GetOrdinal("winner")) ? null : Convert.ToUInt64(reader.GetValue(reader.GetOrdinal("winner"))),
+                    reader.GetString(reader.GetOrdinal("reaction_emoji")),
+                    reader.GetDateTime(reader.GetOrdinal("end_time")),
+                    reader.GetBoolean(reader.GetOrdinal("has_ended")),
+                    reader.GetDateTime(reader.GetOrdinal("created_at")),
+                    Convert.ToUInt64(reader.GetValue(reader.GetOrdinal("created_by")))
+                ));
+            }
+
+            return giveaways;
+        }
+        /// <summary>
+        /// Updates the status of a giveaway to indicate whether it has ended and optionally sets the winner.
+        /// </summary>
+        /// <param name="id">The unique identifier of the giveaway to update.</param>
+        /// <param name="winnerId">The user ID of the giveaway winner. Specify <see langword="null"/> if there is no winner or the winner is
+        /// not being set.</param>
+        /// <param name="hasEnded">A value indicating whether the giveaway has ended. The default is <see langword="true"/>.</param>
+        /// <returns>A task that represents the asynchronous operation.</returns>
+        public async Task UpdateGiveawayEndedAsync(int id, ulong? winnerId = null, bool hasEnded = true)
+        {
+            const string query = "UPDATE giveaways SET has_ended = @hasEnded, winner = @winnerId WHERE id = @id;";
+            NpgsqlParameter[] parameters = new NpgsqlParameter[]
+            {
+                new("@id", id),
+                new("@winnerId", winnerId.HasValue ? (decimal)winnerId.Value : DBNull.Value),
+                new("@hasEnded", hasEnded)
+            };
+
+            await _dbHelper.ExecuteNonQueryAsync(query, parameters);
+        }
+        /// <summary>
+        /// Deletes the giveaway entry with the specified identifier from the data store asynchronously.
+        /// </summary>
+        /// <remarks>If no giveaway with the specified identifier exists, the method completes without
+        /// throwing an exception.</remarks>
+        /// <param name="id">The unique identifier of the giveaway to delete.</param>
+        /// <returns>A task that represents the asynchronous delete operation.</returns>
+        public async Task DeleteGiveawayAsync(int id)
+        {
+            const string query = "DELETE FROM giveaways WHERE id = @id;";
+            NpgsqlParameter[] parameters = new NpgsqlParameter[] {
+                new("@id", id)
+            };
+
+            await _dbHelper.ExecuteNonQueryAsync(query, parameters);
+        }
         #endregion
     }
 
