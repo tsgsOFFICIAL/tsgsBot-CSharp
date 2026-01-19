@@ -1,5 +1,4 @@
-﻿using Discord;
-using Npgsql;
+﻿using Npgsql;
 using NpgsqlTypes;
 using System.Text.Json;
 using tsgsBot_C_.Models;
