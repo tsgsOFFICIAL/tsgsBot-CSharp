@@ -1,6 +1,6 @@
-﻿using System.Text.RegularExpressions;
-using Discord.Interactions;
+﻿using Discord.Interactions;
 using Discord.WebSocket;
+using tsgsBot_C_.Utils;
 using Discord;
 
 namespace tsgsBot_C_.Commands.Moderation
@@ -114,7 +114,7 @@ namespace tsgsBot_C_.Commands.Moderation
                 await staffLog.SendMessageAsync(logMessage);
             }
 
-            long? ms = ParseDuration(duration);
+            long? ms = HelperMethods.ParseDuration(duration);
             if (ms.HasValue)
             {
                 _ = Task.Delay((int)ms.Value).ContinueWith(async _ =>
@@ -129,28 +129,6 @@ namespace tsgsBot_C_.Commands.Moderation
                     catch { } // Ignore errors (e.g., user left)
                 });
             }
-        }
-
-        private static long? ParseDuration(string? duration)
-        {
-            if (string.IsNullOrWhiteSpace(duration))
-                return null;
-
-            Match match = Regex.Match(duration, @"^(\d+)([smhd])$", RegexOptions.IgnoreCase);
-            if (!match.Success)
-                return null;
-
-            if (!long.TryParse(match.Groups[1].Value, out long val))
-                return null;
-
-            return match.Groups[2].Value.ToLower() switch
-            {
-                "s" => val * 1000,
-                "m" => val * 60 * 1000,
-                "h" => val * 3600 * 1000,
-                "d" => val * 86400 * 1000,
-                _ => null
-            };
         }
     }
 

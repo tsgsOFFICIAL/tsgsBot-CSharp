@@ -1,5 +1,6 @@
-﻿using Discord.Interactions;
-using Discord;
+﻿using Discord;
+using Discord.Interactions;
+using tsgsBot_C_.Utils;
 
 namespace tsgsBot_C_.Commands.Public
 {
@@ -9,33 +10,21 @@ namespace tsgsBot_C_.Commands.Public
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task RemindAsync(
             [Summary("task", "The task or item to remind you about")] string task,
-            [Summary("time", "Time in 24-hour format (e.g. 14:30)")] string time,
+            [Summary("duration", "Optional mute duration (e.g., 10m, 1h, 2d)")] string? duration = null,
             [Summary("date", "Date in YYYY-MM-DD format (optional – defaults to today)")] string? date = null)
         {
             await DeferAsync(ephemeral: true);
-            await LogCommandAsync(("task", task), ("time", time), ("date", date));
+            await LogCommandAsync(("task", task), ("duration", duration), ("date", date));
 
             try
             {
-                // Default to today if no date
-                date ??= DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
+                long? ms = HelperMethods.ParseDuration(duration);
 
-                // Parse date + time
-                if (!DateTimeOffset.TryParse($"{date} {time}", out DateTimeOffset reminderTime))
-                {
-                    await FollowupAsync("Invalid date/time format. Use YYYY-MM-DD and HH:mm (24-hour).", ephemeral: true);
-                    return;
-                }
+                TimeSpan delay = ms.HasValue
+                    ? TimeSpan.FromMilliseconds(ms.Value)
+                    : TimeSpan.Zero;
 
-                DateTimeOffset now = DateTimeOffset.UtcNow;
-
-                if (reminderTime <= now)
-                {
-                    await FollowupAsync("That time has already passed. Please choose a future time.", ephemeral: true);
-                    return;
-                }
-
-                TimeSpan delay = reminderTime - now;
+                DateTimeOffset reminderTime = DateTimeOffset.UtcNow + delay;
 
                 // Human-readable delay
                 List<string> parts = new List<string>();
