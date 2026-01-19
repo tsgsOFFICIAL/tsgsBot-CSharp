@@ -1,6 +1,6 @@
-﻿using Discord;
-using Discord.Interactions;
+﻿using Discord.Interactions;
 using tsgsBot_C_.Utils;
+using Discord;
 
 namespace tsgsBot_C_.Commands.Public
 {
@@ -10,11 +10,10 @@ namespace tsgsBot_C_.Commands.Public
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task RemindAsync(
             [Summary("task", "The task or item to remind you about")] string task,
-            [Summary("duration", "Optional mute duration (e.g., 10m, 1h, 2d)")] string? duration = null,
-            [Summary("date", "Date in YYYY-MM-DD format (optional – defaults to today)")] string? date = null)
+            [Summary("duration", "Optional mute duration (e.g., 10m, 1h, 2d)")] string duration)
         {
             await DeferAsync(ephemeral: true);
-            await LogCommandAsync(("task", task), ("duration", duration), ("date", date));
+            await LogCommandAsync(("task", task), ("duration", duration));
 
             try
             {
