@@ -12,7 +12,7 @@ namespace tsgsBot_C_.Commands.Moderation
         [DefaultMemberPermissions(GuildPermission.MuteMembers)]
         public async Task MuteAsync(
             [Summary("target", "The member to mute")] IGuildUser target,
-            [Summary("duration", "Optional mute duration (e.g., 10m, 1h, 2d)")] string? duration = null,
+            [Summary("duration", "Optional mute duration (e.g. 7h 30m, 2d, 1w)")] string? duration = null,
             [Summary("reason", "Optional reason for muting")] string? reason = null)
         {
             reason ??= "No reason provided";
@@ -105,19 +105,31 @@ namespace tsgsBot_C_.Commands.Moderation
 
             await target.AddRoleAsync(mutedRole);
 
-            string durationText = duration != null ? $" for {duration}" : "";
-            await FollowupAsync($"🔇 {target.Mention} has been muted{durationText}. Reason: {reason}", ephemeral: true);
+            TimeSpan? muteDuration = duration != null
+                ? HelperMethods.ParseDuration(duration)
+                : null;
+
+            string durationText = muteDuration != null
+                ? $" for {duration}"
+                : "";
+
+            await FollowupAsync(
+                $"🔇 {target.Mention} has been muted{durationText}. Reason: {reason}",
+                ephemeral: true);
 
             if (staffLog != null)
             {
-                string logMessage = $"🔇 **{target.Mention}** has been muted by **{Context.User.Mention}**{durationText}. Reason: {reason}";
+                string logMessage =
+                    $"🔇 **{target.Mention}** has been muted by **{Context.User.Mention}**" +
+                    $"{durationText}. Reason: {reason}";
+
                 await staffLog.SendMessageAsync(logMessage);
             }
 
-            long? ms = HelperMethods.ParseDuration(duration);
-            if (ms.HasValue)
+            // Timed unmute (non-persistent)
+            if (muteDuration is { } delay && delay > TimeSpan.Zero)
             {
-                _ = Task.Delay((int)ms.Value).ContinueWith(async _ =>
+                _ = Task.Delay(delay).ContinueWith(async _ =>
                 {
                     try
                     {
@@ -126,7 +138,10 @@ namespace tsgsBot_C_.Commands.Moderation
                             await target.RemoveRoleAsync(mutedRole);
                         }
                     }
-                    catch { } // Ignore errors (e.g., user left)
+                    catch
+                    {
+                        // Ignore (user left, role deleted, bot restarted, etc.)
+                    }
                 });
             }
         }
@@ -136,7 +151,7 @@ namespace tsgsBot_C_.Commands.Moderation
     {
         public string Title => "Mute User"; // Overridden in builder
 
-        [InputLabel("Duration (e.g., 10m, 1h, 2d)")]
+        [InputLabel("Duration (e.g. 7h 30m, 2d, 1w)")]
         [ModalTextInput("duration", TextInputStyle.Short)]
         public required string Duration { get; set; }
 

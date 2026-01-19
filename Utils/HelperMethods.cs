@@ -4,26 +4,36 @@ namespace tsgsBot_C_.Utils
 {
     public static class HelperMethods
     {
-        public static long? ParseDuration(string? duration)
+        private static readonly Regex DurationToken = new(@"(\d+)\s*(s|m|h|d|w)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        public static TimeSpan? ParseDuration(string input)
         {
-            if (string.IsNullOrWhiteSpace(duration))
+            if (string.IsNullOrWhiteSpace(input))
                 return null;
 
-            Match match = Regex.Match(duration, @"^(\d+)([smhd])$", RegexOptions.IgnoreCase);
-            if (!match.Success)
+            MatchCollection matches = DurationToken.Matches(input);
+            if (matches.Count == 0)
                 return null;
 
-            if (!long.TryParse(match.Groups[1].Value, out long val))
-                return null;
+            long totalSeconds = 0;
 
-            return match.Groups[2].Value.ToLower() switch
+            foreach (Match m in matches)
             {
-                "s" => val * 1000,
-                "m" => val * 60 * 1000,
-                "h" => val * 3600 * 1000,
-                "d" => val * 86400 * 1000,
-                _ => null
-            };
+                long value = long.Parse(m.Groups[1].Value);
+                string unit = m.Groups[2].Value.ToLowerInvariant();
+
+                totalSeconds += unit switch
+                {
+                    "s" => value,
+                    "m" => value * 60,
+                    "h" => value * 3600,
+                    "d" => value * 86400,
+                    "w" => value * 604800,
+                    _ => 0
+                };
+            }
+
+            return TimeSpan.FromSeconds(totalSeconds);
         }
     }
 }

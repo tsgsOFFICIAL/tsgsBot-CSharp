@@ -10,38 +10,47 @@ namespace tsgsBot_C_.Commands.Public
         [DefaultMemberPermissions(GuildPermission.UseApplicationCommands)]
         public async Task RemindAsync(
             [Summary("task", "The task or item to remind you about")] string task,
-            [Summary("duration", "Optional mute duration (e.g., 10m, 1h, 2d)")] string duration)
+            [Summary("duration", "When to remind you (e.g. 7h 30m, 2d, 1w)")] string duration)
         {
             await DeferAsync(ephemeral: true);
             await LogCommandAsync(("task", task), ("duration", duration));
 
             try
             {
-                long? ms = HelperMethods.ParseDuration(duration);
+                TimeSpan? delay = HelperMethods.ParseDuration(duration);
 
-                TimeSpan delay = ms.HasValue
-                    ? TimeSpan.FromMilliseconds(ms.Value)
-                    : TimeSpan.Zero;
+                if (delay is null || delay.Value <= TimeSpan.Zero)
+                {
+                    await FollowupAsync(
+                        "❌ I couldn't understand that time.\n" +
+                        "Try something like `10m`, `1h 30m`, or `2d`.",
+                        ephemeral: true);
+                    return;
+                }
 
-                DateTimeOffset reminderTime = DateTimeOffset.UtcNow + delay;
+                DateTimeOffset reminderTime = DateTimeOffset.UtcNow.Add(delay.Value);
 
                 // Human-readable delay
-                List<string> parts = new List<string>();
-                if (delay.Days > 0) parts.Add($"{delay.Days} day{(delay.Days > 1 ? "s" : "")}");
-                if (delay.Hours > 0) parts.Add($"{delay.Hours} hour{(delay.Hours > 1 ? "s" : "")}");
-                if (delay.Minutes > 0) parts.Add($"{delay.Minutes} minute{(delay.Minutes > 1 ? "s" : "")}");
-                if (delay.Seconds > 0 || parts.Count == 0)
-                    parts.Add($"{delay.Seconds} second{(delay.Seconds > 1 ? "s" : "")}");
+                List<string> parts = new();
+
+                if (delay.Value.Days > 0)
+                    parts.Add($"{delay.Value.Days} day{(delay.Value.Days > 1 ? "s" : "")}");
+                if (delay.Value.Hours > 0)
+                    parts.Add($"{delay.Value.Hours} hour{(delay.Value.Hours > 1 ? "s" : "")}");
+                if (delay.Value.Minutes > 0)
+                    parts.Add($"{delay.Value.Minutes} minute{(delay.Value.Minutes > 1 ? "s" : "")}");
+                if (delay.Value.Seconds > 0 || parts.Count == 0)
+                    parts.Add($"{delay.Value.Seconds} second{(delay.Value.Seconds > 1 ? "s" : "")}");
 
                 string delayText = string.Join(", ", parts);
 
                 await FollowupAsync(
-                    $"Reminder set for **{task}** at {reminderTime:yyyy-MM-dd HH:mm} UTC.\n" +
+                    $"Reminder set for **{task}** at <t:{reminderTime.ToUnixTimeSeconds()}:F>.\n" +
                     $"I will remind you in {delayText}.",
                     ephemeral: true);
 
-                // Fire reminder after delay (non-persistent!)
-                _ = Task.Delay(delay).ContinueWith(async _ =>
+                // Fire reminder after delay (non-persistent!) TODO, ADD Persistence to DB like Polls and Giveaways
+                _ = Task.Delay(delay.Value).ContinueWith(async _ =>
                 {
                     try
                     {
