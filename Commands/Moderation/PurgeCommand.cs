@@ -28,7 +28,7 @@ namespace tsgsBot_C_.Commands.Moderation
         {
             bool isNuke = amount == null && user == null;
 
-            if (!isNuke && (amount ?? 0) <= 0)
+            if (amount <= 0)
             {
                 await RespondAsync("Amount must be positive if provided.", ephemeral: true);
                 return;
@@ -36,8 +36,7 @@ namespace tsgsBot_C_.Commands.Moderation
 
             if (isNuke)
             {
-                IGuildUser? guildUser = Context.User as IGuildUser;
-                if (guildUser == null || !guildUser.GuildPermissions.ManageChannels)
+                if (Context.User is not IGuildUser guildUser || !guildUser.GuildPermissions.ManageChannels)
                 {
                     await RespondAsync("You need Manage Channels permission to nuke the channel.", ephemeral: true);
                     return;
@@ -63,8 +62,8 @@ namespace tsgsBot_C_.Commands.Moderation
                 List<IMessage> allMessages = new List<IMessage>();
                 ulong? before = null;
                 int remaining = amount ?? int.MaxValue;
-                ITextChannel? channel = Context.Channel as ITextChannel;
-                if (channel == null)
+                
+                if (Context.Channel is not ITextChannel channel)
                 {
                     await FollowupAsync("Invalid channel.", ephemeral: true);
                     return;
