@@ -37,7 +37,7 @@
 - [x] say
 - [x] role-remove
 - [x] role-add
-- [ ] purge
+- [x] purge
 - [x] nick
 - [x] dm
 - [ ] ~~clearlog~~
