@@ -64,7 +64,7 @@ namespace tsgsBot_C_.Services
                     id SERIAL PRIMARY KEY,
                     user_id NUMERIC NOT NULL,
                     task TEXT NOT NULL,
-                    reminder_time TIMESTAMP NOT NULL,
+                    reminder_time TIMESTAMPTZ NOT NULL,
                     has_sent BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT (TIMEZONE('UTC', NOW()))
                 );
@@ -422,10 +422,9 @@ namespace tsgsBot_C_.Services
                     Value = (decimal)userId
                 },
                 new("@task", task),
-                new("@reminder_time", NpgsqlDbType.Timestamp)
+                new("@reminder_time", NpgsqlDbType.TimestampTz)
                 {
-                    // Store as timezone-agnostic timestamp to avoid server TZ offsets
-                    Value = DateTime.SpecifyKind(reminderTime, DateTimeKind.Unspecified)
+                    Value = reminderTime
                 }
             ];
 

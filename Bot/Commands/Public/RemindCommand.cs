@@ -1,8 +1,8 @@
 ﻿using Discord.Interactions;
 using tsgsBot_C_.Services;
+using Discord.WebSocket;
 using tsgsBot_C_.Utils;
 using Discord;
-using Discord.WebSocket;
 
 namespace tsgsBot_C_.Bot.Commands.Public
 {
