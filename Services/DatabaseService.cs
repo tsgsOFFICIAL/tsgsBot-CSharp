@@ -60,6 +60,19 @@ namespace tsgsBot_C_.Services
                     ON giveaways (has_ended, end_time)
                     WHERE has_ended = FALSE;
 
+                CREATE TABLE IF NOT EXISTS reminders (
+                    id SERIAL PRIMARY KEY,
+                    user_id NUMERIC NOT NULL,
+                    task TEXT NOT NULL,
+                    reminder_time TIMESTAMP NOT NULL,
+                    has_sent BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT (TIMEZONE('UTC', NOW()))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_reminders_active
+                    ON reminders (has_sent, reminder_time)
+                    WHERE has_sent = FALSE;
+
                 CREATE TABLE IF NOT EXISTS secrets (
                     id SERIAL PRIMARY KEY,
                     key TEXT NOT NULL,
@@ -376,13 +389,137 @@ namespace tsgsBot_C_.Services
         public async Task<string> GetSecretAsync(string key)
         {
             const string query = "SELECT value FROM secrets WHERE key = @key LIMIT 1;";
-            
+
             NpgsqlParameter[] parameters = new NpgsqlParameter[] {
                 new("@key", key)
             };
 
             object? result = await _dbHelper.ExecuteScalarAsync(query, parameters);
             return result?.ToString() ?? string.Empty;
+        }
+        #endregion
+
+        #region TABLE [Reminders]
+        /// <summary>
+        /// Creates a new reminder entry in the database.
+        /// </summary>
+        /// <param name="userId">The Discord user ID who created the reminder.</param>
+        /// <param name="task">The reminder task or text.</param>
+        /// <param name="reminderTime">The time when the reminder should be sent (UTC).</param>
+        /// <returns>The ID of the newly created reminder.</returns>
+        public async Task<int> CreateReminderAsync(ulong userId, string task, DateTime reminderTime)
+        {
+            const string query = @"
+                INSERT INTO reminders (user_id, task, reminder_time, has_sent)
+                VALUES (@user_id, @task, @reminder_time, FALSE)
+                RETURNING id;
+            ";
+
+            NpgsqlParameter[] parameters =
+            [
+                new("@user_id", userId),
+                new("@task", task),
+                new("@reminder_time", reminderTime)
+            ];
+
+            object? result = await _dbHelper.ExecuteScalarAsync(query, parameters);
+            if (result is int reminderId)
+            {
+                return reminderId;
+            }
+
+            throw new InvalidOperationException("Failed to create reminder or retrieve reminder ID from database.");
+        }
+        /// <summary>
+        /// Retrieves all active reminders (not yet sent).
+        /// </summary>
+        /// <returns>A list of active reminders.</returns>
+        public async Task<List<DatabaseReminderModel>> GetActiveRemindersAsync()
+        {
+            const string query = @"
+                SELECT id, user_id, task, reminder_time, has_sent, created_at
+                FROM reminders
+                WHERE has_sent = FALSE
+                ORDER BY reminder_time ASC;
+            ";
+
+            List<DatabaseReminderModel> reminders = new();
+
+            using NpgsqlDataReader reader = await _dbHelper.ExecuteReaderAsync(query);
+            while (await reader.ReadAsync())
+            {
+                reminders.Add(new DatabaseReminderModel
+                {
+                    Id = reader.GetInt32(0),
+                    UserId = (ulong)reader.GetDecimal(1),
+                    Task = reader.GetString(2),
+                    ReminderTime = reader.GetDateTime(3),
+                    HasSent = reader.GetBoolean(4),
+                    CreatedAt = reader.GetDateTime(5)
+                });
+            }
+
+            return reminders;
+        }
+        /// <summary>
+        /// Asynchronously retrieves all reminders associated with the specified user.
+        /// </summary>
+        /// <remarks>The reminders are returned in ascending order by their scheduled reminder time.
+        /// Ensure that the user ID provided corresponds to an existing user in the database.</remarks>
+        /// <param name="userId">The unique identifier of the user whose reminders are to be retrieved. Must be a positive unsigned long
+        /// value.</param>
+        /// <returns>A list of DatabaseReminderModel objects representing the reminders for the specified user. The list is empty
+        /// if no reminders are found.</returns>
+        public async Task<List<DatabaseReminderModel>> GetUserRemindersAsync(ulong userId)
+        {
+            const string query = @"
+                SELECT id, user_id, task, reminder_time, has_sent, created_at
+                FROM reminders
+                WHERE user_id = @user_id
+                ORDER BY reminder_time ASC;
+            ";
+
+            NpgsqlParameter[] parameters = [new("@user_id", NpgsqlDbType.Numeric) { Value = (decimal)userId }];
+            List<DatabaseReminderModel> reminders = new();
+
+            using NpgsqlDataReader reader = await _dbHelper.ExecuteReaderAsync(query, parameters);
+
+            while (await reader.ReadAsync())
+            {
+                reminders.Add(new DatabaseReminderModel
+                {
+                    Id = reader.GetInt32(0),
+                    UserId = (ulong)reader.GetDecimal(1),
+                    Task = reader.GetString(2),
+                    ReminderTime = reader.GetDateTime(3),
+                    HasSent = reader.GetBoolean(4),
+                    CreatedAt = reader.GetDateTime(5)
+                });
+            }
+
+            return reminders;
+        }
+        /// <summary>
+        /// Marks a reminder as sent.
+        /// </summary>
+        /// <param name="reminderId">The ID of the reminder to mark as sent.</param>
+        public async Task MarkReminderSentAsync(int reminderId)
+        {
+            const string query = "UPDATE reminders SET has_sent = TRUE WHERE id = @id;";
+            NpgsqlParameter[] parameters = [new("@id", reminderId)];
+
+            await _dbHelper.ExecuteNonQueryAsync(query, parameters);
+        }
+        /// <summary>
+        /// Deletes a reminder by ID.
+        /// </summary>
+        /// <param name="reminderId">The ID of the reminder to delete.</param>
+        public async Task DeleteReminderAsync(int reminderId)
+        {
+            const string query = "DELETE FROM reminders WHERE id = @id;";
+            NpgsqlParameter[] parameters = [new("@id", reminderId)];
+
+            await _dbHelper.ExecuteNonQueryAsync(query, parameters);
         }
         #endregion
     }

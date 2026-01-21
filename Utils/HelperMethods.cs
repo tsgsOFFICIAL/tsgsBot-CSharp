@@ -35,5 +35,16 @@ namespace tsgsBot_C_.Utils
 
             return TimeSpan.FromSeconds(totalSeconds);
         }
+
+        public static string FormatTimeRemaining(TimeSpan timeSpan)
+        {
+            if (timeSpan.TotalDays >= 1)
+                return $"{(int)timeSpan.TotalDays}d {timeSpan.Hours}h {timeSpan.Minutes}m";
+            if (timeSpan.TotalHours >= 1)
+                return $"{timeSpan.Hours}h {timeSpan.Minutes}m";
+            if (timeSpan.TotalMinutes >= 1)
+                return $"{timeSpan.Minutes}m {timeSpan.Seconds}s";
+            return $"{timeSpan.Seconds}s";
+        }
     }
 }
