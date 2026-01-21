@@ -63,7 +63,7 @@ Most commands require only `UseApplicationCommands` permission - some need highe
 - `/mynick [nickname]` → Change your own nickname
 - `/role-add [user] [role]` (ManageRoles)
 - `/role-remove [user] [role]` (ManageRoles)
-- `/purge [amount] [user]` (ManageChannels) → Delete messages / nuke channel
+- `/purge [amount] [user] [all-channels]` (ManageChannels) → Delete messages / nuke channel
 - `/say [message] [channel]` (ManageMessages) → Make bot speak
 - `/status [type] [message]` (Administrator) → Change bot status
 
