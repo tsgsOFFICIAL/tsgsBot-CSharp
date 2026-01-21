@@ -47,12 +47,11 @@ namespace tsgsBot_C_.Bot.Commands.Public
                 foreach (DatabaseReminderModel? reminder in activeReminders.OrderBy(r => r.ReminderTime))
                 {
                     TimeSpan timeUntilReminder = reminder.ReminderTime - DateTime.UtcNow;
-                    string timeDisplay = HelperMethods.FormatTimeRemaining(timeUntilReminder);
 
                     embed.AddField(
                         reminder.Task,
                         $"<t:{((DateTimeOffset)reminder.ReminderTime).ToUnixTimeSeconds()}:F>\n" +
-                        $"*in {timeDisplay}*",
+                        $"*<t:{((DateTimeOffset)reminder.ReminderTime).ToUnixTimeSeconds()}:R>*",
                         inline: false);
                 }
 
