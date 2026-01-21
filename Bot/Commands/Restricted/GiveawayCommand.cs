@@ -75,7 +75,8 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                 .WithTitle("Create Your Giveaway")
                 .AddTextInput("What's the prize", "prize", TextInputStyle.Short, placeholder: "The key to my heart", required: true)
                 .AddTextInput("How many can win", "winners", TextInputStyle.Short, value: "1", required: true)
-                .AddTextInput("Reaction ReactionEmoji", "reaction_emoji", TextInputStyle.Short, value: "🎉", required: true);
+                .AddTextInput("Reaction ReactionEmoji", "reaction_emoji", TextInputStyle.Short, value: "🎉", required: true)
+                .AddFileUpload("Image (optional)", "image", 0, 1, false);
 
             await RespondWithModalAsync(modal.Build());
             await DeleteOriginalResponseAsync(); // Clean up the previous message
@@ -87,6 +88,18 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
             await DeferAsync(ephemeral: true);
 
             UserGiveawayFormState state = stateService.GetOrCreate(Context.User.Id);
+
+            // Get uploaded image if present
+            string? uploadedImageUrl = null;
+            if (Context.Interaction is SocketModal socketModal && socketModal.Data.Attachments != null && socketModal.Data.Attachments.Count() > 0)
+            {
+                uploadedImageUrl = socketModal.Data.Attachments.First().Url;
+                state.ImageUrl = uploadedImageUrl;
+            }
+            else
+            {
+                state.ImageUrl = null;
+            }
 
             string rawEmoji = modal.ReactionEmoji?.Trim() ?? string.Empty;
 
@@ -114,8 +127,14 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                         $"⏳ **Ends:** <t:{DateTimeOffset.UtcNow.AddMinutes(state.DurationMinutes).ToUnixTimeSeconds()}:R>")
                 .WithColor(Color.Teal);
 
+            if (!string.IsNullOrEmpty(state.ImageUrl))
+            {
+                previewEmbed.WithImageUrl(state.ImageUrl);
+            }
+
             ComponentBuilder confirmRow = new ComponentBuilder()
                 .WithButton("Create Giveaway", "giveaway_confirm", ButtonStyle.Success)
+                .WithButton("Edit", "giveaway_edit", ButtonStyle.Secondary)
                 .WithButton("Cancel", "giveaway_cancel", ButtonStyle.Danger);
 
             await ModifyOriginalResponseAsync(msg =>
@@ -163,6 +182,11 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                         $"⏳ **Ends:** <t:{DateTimeOffset.UtcNow.AddMinutes(state.DurationMinutes).ToUnixTimeSeconds()}:R>")
                 .WithColor(Color.Teal);
 
+            if (!string.IsNullOrEmpty(state.ImageUrl))
+            {
+                giveawayEmbed.WithImageUrl(state.ImageUrl);
+            }
+
             RestUserMessage giveawayMessage = await Context.Channel.SendMessageAsync(embed: giveawayEmbed.Build());
             await DeleteOriginalResponseAsync(); // Clean up the ephemeral message
 
@@ -191,7 +215,7 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                 logger.LogInformation("Giveaway recorded in database with GiveawayId {GiveawayId}", giveawayId);
 
                 // Queue finalization as a background task for tracking and unified handling
-                var backgroundTask = new BackgroundTask
+                BackgroundTask backgroundTask = new BackgroundTask
                 {
                     TaskType = "GiveawayFinalization",
                     Description = $"Giveaway finalization for giveaway {giveawayId}",
@@ -232,6 +256,24 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
 
             // Clear state
             stateService.Clear(Context.User.Id);
+        }
+
+        [ComponentInteraction("giveaway_edit")]
+        public async Task HandleEditAsync()
+        {
+            UserGiveawayFormState state = stateService.GetOrCreate(Context.User.Id);
+
+            // Re-show the modal with previous values
+            ModalBuilder modal = new ModalBuilder()
+                .WithCustomId("giveaway_modal")
+                .WithTitle("Create Your Giveaway")
+                .AddTextInput("What's the prize", "prize", TextInputStyle.Short, placeholder: "The key to my heart", value: state.ModalData?.Prize, required: true)
+                .AddTextInput("How many can win", "winners", TextInputStyle.Short, value: state.ModalData?.Winners ?? "1", required: true)
+                .AddTextInput("Reaction ReactionEmoji", "reaction_emoji", TextInputStyle.Short, value: state.ModalData?.ReactionEmoji ?? "🎉", required: true)
+                .AddFileUpload("Image (optional)", "image", 0, 1, false);
+
+            await RespondWithModalAsync(modal.Build());
+            await DeleteOriginalResponseAsync();
         }
 
         [ComponentInteraction("giveaway_cancel")]

@@ -6,7 +6,7 @@ namespace tsgsBot_C_.StateServices
     public sealed class GiveawayFormStateService
     {
         private readonly ConcurrentDictionary<ulong, UserGiveawayFormState> _userStates = new();
-        
+
         public UserGiveawayFormState GetOrCreate(ulong userId)
         {
             return _userStates.GetOrAdd(userId, _ => new UserGiveawayFormState());
@@ -40,11 +40,12 @@ namespace tsgsBot_C_.StateServices
             return removed;
         }
     }
-    
+
     public class UserGiveawayFormState
     {
         public int DurationMinutes { get; set; }
         public GiveawayModalModel? ModalData { get; set; }
+        public string? ImageUrl { get; set; }
 
         // used as a timestamp for cleanup (e.g. expire after 30 min)
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

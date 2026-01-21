@@ -45,6 +45,7 @@ namespace tsgsBot_C_.StateServices
     {
         public int DurationMinutes { get; set; }
         public PollModalModel? ModalData { get; set; }
+        public string? ImageUrl { get; set; }
 
         // used as a timestamp for cleanup (e.g. expire after 30 min)
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

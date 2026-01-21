@@ -75,7 +75,8 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                 .WithTitle("Create Your Poll")
                 .AddTextInput("Poll Question", "question", TextInputStyle.Short, placeholder: "Are we raiding tonight?", required: true)
                 .AddTextInput("Answers (one per line, 2–10)", "answers", TextInputStyle.Paragraph, placeholder: "Yes definitely!\nNo way\nOnly if bribed", required: true)
-                .AddTextInput("Custom Emojis (one per line, optional)", "emojis", TextInputStyle.Paragraph, placeholder: ":pepe:\n🤨\n:banhammer:", required: false);
+                .AddTextInput("Custom Emojis (one per line, optional)", "emojis", TextInputStyle.Paragraph, placeholder: ":pepe:\n🤨\n:banhammer:", required: false)
+                .AddFileUpload("Image (optional)", "image", 0, 1, false);
 
             await RespondWithModalAsync(modal.Build());
             await DeleteOriginalResponseAsync(); // Clean up the previous message
@@ -87,6 +88,18 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
             await DeferAsync(ephemeral: true);
 
             UserPollFormState state = stateService.GetOrCreate(Context.User.Id);
+
+            // Get uploaded image if present
+            string? uploadedImageUrl = null;
+            if (Context.Interaction is SocketModal socketModal && socketModal.Data.Attachments != null && socketModal.Data.Attachments.Count() > 0)
+            {
+                uploadedImageUrl = socketModal.Data.Attachments.First().Url;
+                state.ImageUrl = uploadedImageUrl;
+            }
+            else
+            {
+                state.ImageUrl = null;
+            }
 
             string question = modal.Question.Trim();
             List<string> answers = modal.Answers.Trim().Split('\n').Select(a => a.Trim()).Where(a => !string.IsNullOrEmpty(a)).ToList();
@@ -142,8 +155,14 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                     $"\n\n⏳ Ends: <t:{DateTimeOffset.UtcNow.AddMinutes(state.DurationMinutes).ToUnixTimeSeconds()}:R>")
                 .WithColor(Color.Teal);
 
+            if (!string.IsNullOrEmpty(state.ImageUrl))
+            {
+                previewEmbed.WithImageUrl(state.ImageUrl);
+            }
+
             ComponentBuilder confirmRow = new ComponentBuilder()
                 .WithButton("Create Poll", "poll_confirm", ButtonStyle.Success)
+                .WithButton("Edit", "poll_edit", ButtonStyle.Secondary)
                 .WithButton("Cancel", "poll_cancel", ButtonStyle.Danger);
 
             await ModifyOriginalResponseAsync(msg =>
@@ -204,6 +223,11 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                     string.Join("\n", answers.Select((a, i) => $"{emojis[i]} {a}")) +
                     $"\n\n⏳ Ends: <t:{DateTimeOffset.UtcNow.AddMinutes(state.DurationMinutes).ToUnixTimeSeconds()}:R>")
                 .WithColor(Color.Teal);
+
+            if (!string.IsNullOrEmpty(state.ImageUrl))
+            {
+                pollEmbed.WithImageUrl(state.ImageUrl);
+            }
 
             RestUserMessage pollMessage = await Context.Channel.SendMessageAsync(embed: pollEmbed.Build());
             await DeleteOriginalResponseAsync(); // Clean up the ephemeral message
@@ -278,6 +302,24 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
 
             // Clear state
             stateService.Clear(Context.User.Id);
+        }
+
+        [ComponentInteraction("poll_edit")]
+        public async Task HandleEditAsync()
+        {
+            UserPollFormState state = stateService.GetOrCreate(Context.User.Id);
+
+            // Re-show the modal with previous values
+            ModalBuilder modal = new ModalBuilder()
+                .WithCustomId("poll_modal")
+                .WithTitle("Create Your Poll")
+                .AddTextInput("Poll Question", "question", TextInputStyle.Short, placeholder: "Are we raiding tonight?", value: state.ModalData?.Question, required: true)
+                .AddTextInput("Answers (one per line, 2–10)", "answers", TextInputStyle.Paragraph, placeholder: "Yes definitely!\nNo way\nOnly if bribed", value: state.ModalData?.Answers, required: true)
+                .AddTextInput("Custom Emojis (one per line, optional)", "emojis", TextInputStyle.Paragraph, placeholder: ":pepe:\n🤨\n:banhammer:", value: state.ModalData?.Emojis, required: false)
+                .AddFileUpload("Image (optional)", "image", 0, 1, false);
+
+            await RespondWithModalAsync(modal.Build());
+            await DeleteOriginalResponseAsync();
         }
 
         [ComponentInteraction("poll_cancel")]
