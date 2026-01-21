@@ -42,7 +42,7 @@ builder.Services.AddSingleton<GiveawayService>();
 builder.Services.AddSingleton<MemberCounterService>();
 
 // Background task queue for managing delayed operations
-builder.Services.AddSingleton<IBackgroundTaskQueue>(new BackgroundTaskQueue(100));
+builder.Services.AddSingleton<IBackgroundTaskQueue>(new BackgroundTaskQueue());
 builder.Services.AddHostedService<BackgroundTaskProcessor>();
 
 // A hosted service that manages lifetime of the Discord connection + command registration

@@ -56,13 +56,9 @@ public sealed class BackgroundTaskQueue : IBackgroundTaskQueue
 {
     private readonly Channel<BackgroundTask> _queue;
 
-    public BackgroundTaskQueue(int capacity)
+    public BackgroundTaskQueue()
     {
-        BoundedChannelOptions options = new BoundedChannelOptions(capacity)
-        {
-            FullMode = BoundedChannelFullMode.Wait
-        };
-        _queue = Channel.CreateBounded<BackgroundTask>(options);
+        _queue = Channel.CreateUnbounded<BackgroundTask>();
     }
 
     public async ValueTask QueueAsync(BackgroundTask task)
@@ -94,26 +90,30 @@ public sealed class BackgroundTaskProcessor(IBackgroundTaskQueue taskQueue, ILog
 
         await foreach (BackgroundTask task in ProcessTasksAsync(stoppingToken))
         {
-            try
+            // Fire and forget - don't await, so tasks run concurrently
+            _ = Task.Run(async () =>
             {
-                logger.LogInformation("Processing background task {TaskId} of type '{TaskType}': {Description}",
-                    task.Id, task.TaskType, task.Description ?? "No description");
+                try
+                {
+                    logger.LogInformation("Processing background task {TaskId} of type '{TaskType}': {Description}",
+                        task.Id, task.TaskType, task.Description ?? "No description");
 
-                await task.Work(stoppingToken);
+                    await task.Work(stoppingToken);
 
-                TimeSpan duration = DateTime.UtcNow - task.CreatedAt;
-                logger.LogInformation("Completed background task {TaskId} in {Duration}ms",
-                    task.Id, duration.TotalMilliseconds);
-            }
-            catch (OperationCanceledException)
-            {
-                logger.LogInformation("Background task {TaskId} was cancelled", task.Id);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error processing background task {TaskId} of type '{TaskType}'",
-                    task.Id, task.TaskType);
-            }
+                    TimeSpan duration = DateTime.UtcNow - task.CreatedAt;
+                    logger.LogInformation("Completed background task {TaskId} in {Duration}ms",
+                        task.Id, duration.TotalMilliseconds);
+                }
+                catch (OperationCanceledException)
+                {
+                    logger.LogInformation("Background task {TaskId} was cancelled", task.Id);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error processing background task {TaskId} of type '{TaskType}'",
+                        task.Id, task.TaskType);
+                }
+            }, stoppingToken);
         }
 
         logger.LogInformation("Background task processor stopped");
