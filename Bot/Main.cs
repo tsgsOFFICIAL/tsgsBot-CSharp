@@ -314,12 +314,12 @@ namespace tsgsBot_C_.Bot
                 // Set initial activity
                 await SetRandomActivityAsync();
 
-                // Update member counts
-                await _memberCounterService!.UpdateAsync();
-
                 _memberCounterService = serviceProvider.GetRequiredService<MemberCounterService>();
                 _pollService = serviceProvider.GetRequiredService<PollService>();
                 _giveawayService = serviceProvider.GetRequiredService<GiveawayService>();
+
+                // Update member counts
+                await _memberCounterService!.UpdateAsync();
 
                 logger.LogInformation("🤖  Logged in as bot with ID {BotId}", client.CurrentUser?.Id);
                 logger.LogInformation("✅  Bot is ready and commands registered!");
