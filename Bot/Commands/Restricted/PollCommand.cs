@@ -34,7 +34,10 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                 .AddOption("12 hours", "720")
                 .AddOption("24 hours", "1440")
                 .AddOption("3 days", "4320")
-                .AddOption("1 week", "10080");
+                .AddOption("1 week", "10080")
+                .AddOption("2 weeks", "20160")
+                .AddOption("3 weeks", "30240")
+                .AddOption("1 month", "43200");
 
             ComponentBuilder durationRow = new ComponentBuilder().WithSelectMenu(durationMenu);
 
