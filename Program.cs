@@ -50,7 +50,7 @@ builder.Services.AddHostedService<BackgroundTaskProcessor>();
 builder.Services.AddHostedService<DiscordBotHostedService>();
 
 // ────────────────────────────────────────
-// 2. A health checks
+// 2. health checks
 builder.Services.AddHealthChecks();
 
 // ────────────────────────────────────────
