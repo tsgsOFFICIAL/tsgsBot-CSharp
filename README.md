@@ -36,28 +36,29 @@ All commands are **slash commands** (`/`) unless noted. Scope shows where the co
 
 ### Public slash commands
 
-| Command                               | Description                               | Scope      | Default permission     |
-| ------------------------------------- | ----------------------------------------- | ---------- | ---------------------- |
-| `/ping`                               | Check bot latency                         | Guild & DM | UseApplicationCommands |
-| `/uptime`                             | Show bot runtime                          | Guild & DM | UseApplicationCommands |
-| `/help`                               | List commands you can use                 | Guild      | UseApplicationCommands |
-| `/invite`                             | Get bot invite link                       | Guild & DM | UseApplicationCommands |
-| `/serverinfo`                         | Show server information                   | Guild      | UseApplicationCommands |
-| `/userinfo [user]`                    | Display user details                      | Guild      | UseApplicationCommands |
-| `/randomnumber [min] [max]`           | Generate a random number                  | Guild & DM | UseApplicationCommands |
-| `/remind [task] [duration]`           | Create a reminder                         | Guild & DM | UseApplicationCommands |
-| `/myreminders`                        | List your reminders                       | Guild & DM | UseApplicationCommands |
-| `/report [user] [reason]`             | Report a user to moderators               | Guild      | UseApplicationCommands |
-| `/mynick [nickname]`                  | Change your own nickname                  | Guild      | ChangeNickname         |
-| `/tictactoe [opponent]`               | Challenge someone to Tic-Tac-Toe          | Guild      | UseApplicationCommands |
-| `/meme [subreddit]`                   | Random meme from Reddit                   | Guild & DM | UseApplicationCommands |
-| `/liam`                               | Random meme from #liams-memes             | Guild      | UseApplicationCommands |
-| `/csstats [identifier]`               | CS2 player stats lookup                   | Guild & DM | UseApplicationCommands |
-| `/autoaccept`                         | Directions for AutoAccept (CS2)           | Guild & DM | UseApplicationCommands |
-| `/streamdropcollector` (alias `/sdc`) | Install guide for StreamDropCollector     | Guild      | UseApplicationCommands |
-| `/software`                           | Links to tsgsOFFICIAL software downloads  | Guild & DM | UseApplicationCommands |
-| `/support`                            | Submit a support request for applications | Guild      | UseApplicationCommands |
-| `/verify [code]`                      | Verify a donation to get supporter role   | Guild      | UseApplicationCommands |
+| Command                               | Description                                  | Scope      | Default permission     |
+| ------------------------------------- | -------------------------------------------- | ---------- | ---------------------- |
+| `/ping`                               | Check bot latency                            | Guild & DM | UseApplicationCommands |
+| `/uptime`                             | Show bot runtime                             | Guild & DM | UseApplicationCommands |
+| `/help`                               | List commands you can use                    | Guild      | UseApplicationCommands |
+| `/invite`                             | Get bot invite link                          | Guild & DM | UseApplicationCommands |
+| `/serverinfo`                         | Show server information                      | Guild      | UseApplicationCommands |
+| `/userinfo [user]`                    | Display user details                         | Guild      | UseApplicationCommands |
+| `/randomnumber [min] [max]`           | Generate a random number                     | Guild & DM | UseApplicationCommands |
+| `/remind [task] [duration]`           | Create a reminder                            | Guild & DM | UseApplicationCommands |
+| `/myreminders`                        | List your reminders                          | Guild & DM | UseApplicationCommands |
+| `/report [user] [reason]`             | Report a user to moderators                  | Guild      | UseApplicationCommands |
+| `/mynick [nickname]`                  | Change your own nickname                     | Guild      | ChangeNickname         |
+| `/tictactoe [opponent]`               | Challenge someone to Tic-Tac-Toe             | Guild      | UseApplicationCommands |
+| `/meme [subreddit]`                   | Random meme from Reddit                      | Guild & DM | UseApplicationCommands |
+| `/liam`                               | Random meme from #liams-memes                | Guild      | UseApplicationCommands |
+| `/csstats [identifier]`               | CS2 player stats lookup                      | Guild & DM | UseApplicationCommands |
+| `/autoaccept`                         | Directions for AutoAccept (CS2)              | Guild & DM | UseApplicationCommands |
+| `/streamdropcollector` (alias `/sdc`) | Install guide for StreamDropCollector        | Guild      | UseApplicationCommands |
+| `/software`                           | Links to tsgsOFFICIAL software downloads     | Guild & DM | UseApplicationCommands |
+| `/support`                            | Submit a support request for applications    | Guild      | UseApplicationCommands |
+| `/verify [code]`                      | Verify a donation to get supporter role      | Guild      | UseApplicationCommands |
+| `/create-todo [name] [role]`          | Create an interactive todo list with buttons | Guild      | UseApplicationCommands |
 
 ### Moderation & management slash commands
 
@@ -305,5 +306,7 @@ This is where I track planned features, improvements, and experiments for tsgsBo
 ### Nice-to-Have
 
 ### Ideas / Experiments
+
+- [x] Add a Todo List system.
 
 Made with ❤️ by tsgsOFFICIAL
