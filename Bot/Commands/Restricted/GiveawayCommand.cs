@@ -127,7 +127,8 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                         $"**Prize:** {modal.Prize}\n\n" +
                         $"React with {emoji} to enter!\n\n" +
                         $"🏆 **Winners:** {modal.Winners}\n" +
-                        $"⏳ **Ends:** <t:{DateTimeOffset.UtcNow.AddMinutes(state.DurationMinutes).ToUnixTimeSeconds()}:R>")
+                        $"⏳ **Ends:** <t:{DateTimeOffset.UtcNow.AddMinutes(state.DurationMinutes).ToUnixTimeSeconds()}:R>\n\n" +
+                        $"<@&1463842446231343261>")
                 .WithColor(Color.Teal);
 
             if (!string.IsNullOrEmpty(state.ImageUrl))
@@ -182,7 +183,8 @@ namespace tsgsBot_C_.Bot.Commands.Restricted
                         $"**Prize:** {state.ModalData.Prize}\n\n" +
                         $"React with {emoji} to enter!\n\n" +
                         $"🏆 **Winners:** {state.ModalData.Winners}\n" +
-                        $"⏳ **Ends:** <t:{DateTimeOffset.UtcNow.AddMinutes(state.DurationMinutes).ToUnixTimeSeconds()}:R>")
+                        $"⏳ **Ends:** <t:{DateTimeOffset.UtcNow.AddMinutes(state.DurationMinutes).ToUnixTimeSeconds()}:R>\n\n" +
+                        $"<@&1463842446231343261>")
                 .WithColor(Color.Teal);
 
             if (!string.IsNullOrEmpty(state.ImageUrl))
