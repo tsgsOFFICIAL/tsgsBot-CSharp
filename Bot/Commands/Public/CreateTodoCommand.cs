@@ -395,20 +395,20 @@ namespace tsgsBot_C_.Bot.Commands.Public
             string[] lines = embed.Description.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             foreach (string line in lines)
             {
-                // Format: "1. [ ] text" or "1. [x] ~~text~~"
+                // Format: "1. ⬜ text" or "1. ✅ ~~text~~"
                 int dotIndex = line.IndexOf('.');
                 if (dotIndex == -1)
                     continue;
 
                 string remainder = line[(dotIndex + 1)..].Trim();
-                if (remainder.StartsWith("[ ]"))
+                if (remainder.StartsWith("⬜"))
                 {
-                    string text = remainder[3..].Trim();
+                    string text = remainder[1..].Trim(); // ⬜ is 1 char unit
                     items.Add(new TodoItem(text, false));
                 }
-                else if (remainder.StartsWith("[x]"))
+                else if (remainder.StartsWith("✅"))
                 {
-                    string text = remainder[3..].Trim();
+                    string text = remainder[1..].Trim(); // ✅ is 1 char unit
                     // Remove strikethrough markers if present
                     if (text.StartsWith("~~") && text.EndsWith("~~"))
                         text = text[2..^2];
@@ -427,8 +427,8 @@ namespace tsgsBot_C_.Bot.Commands.Public
             return string.Join("\n", items.Select((item, i) =>
             {
                 string text = item.IsComplete ? $"~~{item.Text}~~" : item.Text;
-                string checkbox = item.IsComplete ? "[x]" : "[ ]";
-                return $"{i + 1}. {checkbox} {text}";
+                string icon = item.IsComplete ? "✅" : "⬜";
+                return $"**{i + 1}.** {icon} {text}";
             }));
         }
 
@@ -457,9 +457,9 @@ namespace tsgsBot_C_.Bot.Commands.Public
             {
                 int row = 1 + (i / 2);
                 ButtonStyle toggleStyle = items[i].IsComplete ? ButtonStyle.Success : ButtonStyle.Secondary;
-                string taskPreview = Truncate(items[i].Text, 70);
-                string toggleLabel = items[i].IsComplete ? $"✅ {taskPreview}" : $"🟩 {taskPreview}";
-                string removeLabel = $"❌ {taskPreview}";
+                string icon = items[i].IsComplete ? "✅" : "⬜";
+                string toggleLabel = $"{icon} {i + 1}";
+                string removeLabel = $"❌ {i + 1}";
 
                 builder.WithButton(toggleLabel, $"todo-toggle:{i}", toggleStyle, row: row);
                 builder.WithButton(removeLabel, $"todo-remove:{i}", ButtonStyle.Danger, row: row);
