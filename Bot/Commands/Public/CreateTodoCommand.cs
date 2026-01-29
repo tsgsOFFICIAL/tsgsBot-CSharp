@@ -461,7 +461,7 @@ namespace tsgsBot_C_.Bot.Commands.Public
             {
                 int row = 1 + (i / 2);
                 ButtonStyle toggleStyle = items[i].IsComplete ? ButtonStyle.Success : ButtonStyle.Secondary;
-                string icon = items[i].IsComplete ? "☑" : "☐";
+                string icon = items[i].IsComplete ? "✅" : "◻️";
                 string toggleLabel = $"{icon} {i + 1}";
                 string removeLabel = $"❌ {i + 1}";
 
